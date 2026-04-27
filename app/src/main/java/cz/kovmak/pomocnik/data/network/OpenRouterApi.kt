@@ -30,7 +30,7 @@ data class Choice(
 
 interface OpenRouterApi {
 
-    @POST("openai/deployments/chat/completions")
+    @POST("chat/completions")
     suspend fun translate(
         @Header("Authorization") auth: String,
         @Body request: TranslationRequest
