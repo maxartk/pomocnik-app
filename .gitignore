@@ -1,5 +1,5 @@
 *.iml
-.gradle
+.gradle/
 /local.properties
 /.idea/
 .DS_Store
@@ -8,8 +8,7 @@
 .externalNativeBuild
 .cxx
 local.properties
-
-# Android Studio
+!gradle/wrapper/gradle-wrapper.jar
 *.log
 *.apk
 *.aab
