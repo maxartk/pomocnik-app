@@ -61,6 +61,20 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     )
 
+    // Auto-launch voice input after permission is granted
+    var launchVoiceAfterPermission by remember { mutableStateOf(false) }
+    LaunchedEffect(permissionsState.allPermissionsGranted) {
+        if (launchVoiceAfterPermission && permissionsState.allPermissionsGranted) {
+            launchVoiceAfterPermission = false
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
+            }
+            voiceLauncher.launch(intent)
+        }
+    }
+
     val voiceLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -148,6 +162,11 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         ) {
             IconButton(
                 onClick = {
+                    if (!permissionsState.allPermissionsGranted) {
+                        permissionsState.launchMultiplePermissionRequest()
+                        launchVoiceAfterPermission = true
+                        return@IconButton
+                    }
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk")
