@@ -1,6 +1,9 @@
 package cz.kovmak.pomocnik.data.network
 
-import com.google.gson.annotations.SerializedName
+import com.google.gson.TypeAdapter
+import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
+import com.google.gson.GsonBuilder
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -22,7 +25,7 @@ data class ImageUrl(
 
 data class Message(
     val role: String,
-    val content: Any
+    val content: Any  // String or List<ContentPart>
 )
 
 data class TranslationRequest(
@@ -43,6 +46,65 @@ data class MessageContent(
     val role: String,
     val content: String
 )
+
+/**
+ * Custom TypeAdapter for Message class that handles the polymorphic content field.
+ * When content is a String, serializes as a JSON string.
+ * When content is a List<ContentPart>, serializes as a JSON array.
+ */
+class MessageTypeAdapter : TypeAdapter<Message>() {
+    private val gson = GsonBuilder().disableHtmlEscaping().create()
+
+    override fun write(out: JsonWriter, message: Message) {
+        out.beginObject()
+        out.name("role").value(message.role)
+        out.name("content")
+        when (val c = message.content) {
+            is String -> out.value(c)
+            is List<*> -> {
+                out.beginArray()
+                for (item in c) {
+                    if (item is ContentPart) {
+                        out.beginObject()
+                        out.name("type").value(item.type)
+                        item.text?.let { out.name("text").value(it) }
+                        item.image_url?.let { img ->
+                            out.name("image_url")
+                            out.beginObject()
+                            out.name("url").value(img.url)
+                            out.endObject()
+                        }
+                        out.endObject()
+                    }
+                }
+                out.endArray()
+            }
+            else -> out.value(c?.toString() ?: "")
+        }
+        out.endObject()
+    }
+
+    override fun read(reader: JsonReader): Message {
+        // We only need write for API calls, but implement read for completeness
+        var role = ""
+        var content: Any = ""
+        reader.beginObject()
+        while (reader.hasNext()) {
+            when (reader.nextName()) {
+                "role" -> role = reader.nextString()
+                "content" -> {
+                    if (reader.peek() == com.google.gson.stream.JsonToken.STRING) {
+                        content = reader.nextString()
+                    } else {
+                        content = reader.nextString() // fallback
+                    }
+                }
+            }
+        }
+        reader.endObject()
+        return Message(role, content)
+    }
+}
 
 interface OpenRouterApi {
 
@@ -70,6 +132,11 @@ interface OpenRouterApi {
                 chain.proceed(request)
             }
 
+            val gson = GsonBuilder()
+                .disableHtmlEscaping()
+                .registerTypeAdapter(Message::class.java, MessageTypeAdapter())
+                .create()
+
             val client = OkHttpClient.Builder()
                 .addInterceptor(authInterceptor)
                 .addInterceptor(loggingInterceptor)
@@ -78,7 +145,7 @@ interface OpenRouterApi {
             return Retrofit.Builder()
                 .baseUrl(BASE_URL)
                 .client(client)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .build()
                 .create(OpenRouterApi::class.java)
         }

@@ -98,36 +98,42 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Convert URI to Base64 string for sending to vision API.
      * Compresses image to reasonable size for API calls.
+     * Supports both content:// and file:// URIs.
      */
     private fun uriToBase64(uriString: String): String? {
         return try {
             val uri = Uri.parse(uriString)
             val context = getApplication<Application>()
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
-            val bitmap = BitmapFactory.decodeStream(inputStream)
+            val inputStream = try {
+                context.contentResolver.openInputStream(uri)
+            } catch (e: Exception) {
+                // Fallback: try file:// URI
+                null
+            } ?: return null
+            
+            val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
             inputStream.close()
             
-            // Scale down if too large (max 1024px for API efficiency)
+            // Scale down if too large (max 1024px for API efficiency + size limit)
             val maxSize = 1024
             var width = bitmap.width
             var height = bitmap.height
+            val outputStream = ByteArrayOutputStream()
             if (width > maxSize || height > maxSize) {
                 val scale = maxSize.toFloat() / maxOf(width, height)
                 width = (width * scale).toInt()
                 height = (height * scale).toInt()
                 val scaled = Bitmap.createScaledBitmap(bitmap, width, height, true)
                 bitmap.recycle()
-                val outputStream = ByteArrayOutputStream()
-                scaled.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+                scaled.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
                 scaled.recycle()
-                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
             } else {
-                val outputStream = ByteArrayOutputStream()
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
                 bitmap.recycle()
-                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
             }
+            Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
+            android.util.Log.e("Pomocnik", "uriToBase64 failed: ${e.message}", e)
             null
         }
     }
@@ -156,7 +162,15 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         _formState.update { it.copy(isTranslating = true, translationError = null) }
         
         val photoUri = _formState.value.photoUri
-        val imageBase64 = photoUri?.let { uriToBase64(it) }
+        val imageBase64 = photoUri?.let { uri ->
+            val result = uriToBase64(uri)
+            if (result == null) {
+                android.util.Log.e("Pomocnik", "Failed to convert photo to base64: $uri")
+            } else {
+                android.util.Log.d("Pomocnik", "Photo converted to base64, size=${result.length}")
+            }
+            result
+        }
         
         viewModelScope.launch {
             try {
@@ -165,7 +179,8 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 _advisorResult.value = answer
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
-                _formState.update { it.copy(isTranslating = false, translationError = "Chyba: ${e.localizedMessage}") }
+                android.util.Log.e("Pomocnik", "Advisor error: ${e.message}", e)
+                _formState.update { it.copy(isTranslating = false, translationError = "Помилка: ${e.localizedMessage ?: e.toString().take(100)}") }
             }
         }
     }

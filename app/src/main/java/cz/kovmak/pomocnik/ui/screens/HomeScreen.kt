@@ -646,6 +646,36 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             }
         }
 
+        // ==================== ERROR DISPLAY ====================
+        AnimatedVisibility(visible = formState.translationError != null) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFCC0000).copy(alpha = 0.15f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("⚠️", fontSize = 18.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = formState.translationError ?: "",
+                        color = Color(0xFFFF6666),
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { viewModel.resetError() }) {
+                        Text("✕", color = Color(0xFFFF6666), fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+
         // ==================== API KEY WARNING ====================
         if (apiKey.isEmpty()) {
             Spacer(modifier = Modifier.height(24.dp))
