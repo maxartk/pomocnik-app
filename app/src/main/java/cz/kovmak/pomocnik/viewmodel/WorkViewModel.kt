@@ -202,7 +202,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         val state = _formState.value
         val profile = userProfile.value
         if (state.descriptionUa.isBlank()) {
-            _formState.update { it.copy(translationError = "Zadejte popis práce") })
+            _formState.update { it.copy(translationError = "Zadejte popis práce") }
             return
         }
         _formState.update { it.copy(isSaving = true) }
