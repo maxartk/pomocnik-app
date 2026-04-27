@@ -42,7 +42,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
             trailingIcon = {
                 if (searchQuery.isNotEmpty()) {
                     IconButton(onClick = { viewModel.updateSearchQuery("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Vymazat")
+                        Icon(Icons.Default.Close, contentDescription = "Vymazat")
                     }
                 }
             },
