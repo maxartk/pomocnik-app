@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,7 +25,7 @@ import cz.kovmak.pomocnik.viewmodel.WorkViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 
-@OptIn(ExperimentalPermissionsApi::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
     val context = LocalContext.current
@@ -182,7 +183,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         }
                         voiceLauncher.launch(intent)
                     },
-                    enabled = permissionsState.permissions.any { it.hasPermission },
+                    enabled = permissionsState.allPermissionsGranted,
                     content = { Icon(Icons.Default.Mic, contentDescription = "Voice") }
                 )
             }

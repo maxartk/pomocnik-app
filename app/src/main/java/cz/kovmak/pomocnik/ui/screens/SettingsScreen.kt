@@ -14,8 +14,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.material3.ExperimentalMaterial3Api
 import cz.kovmak.pomocnik.viewmodel.SettingsViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     val profile by viewModel.userProfile.collectAsState()

@@ -64,7 +64,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalArrangement = Arrangement.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(
                         Icons.Default.EventNote,
                         contentDescription = null,
