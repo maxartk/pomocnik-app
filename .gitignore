@@ -1,0 +1,23 @@
+*.iml
+.gradle
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Android Studio
+*.log
+*.apk
+*.aab
+
+# Miscellaneous
+*.class
+*.jar
+*.lib
+*.swp
+*.swo
+*~
