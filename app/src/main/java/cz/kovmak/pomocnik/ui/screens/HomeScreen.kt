@@ -3,27 +3,48 @@ package cz.kovmak.pomocnik.ui.screens
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cz.kovmak.pomocnik.viewmodel.WorkViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+
+// Modern color palette
+private val NeonOrange = Color(0xFFFF6B35)
+private val NeonBlue = Color(0xFF00B4D8)
+private val DarkBg = Color(0xFF0A0E21)
+private val DarkCard = Color(0xFF1A1F35)
+private val DarkSurface = Color(0xFF16213E)
+private val GlowOrange = Color(0x44FF6B35)
+private val TextWhite = Color(0xFFE8E8E8)
+private val TextGray = Color(0xFF8892B0)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -31,298 +52,459 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
     val context = LocalContext.current
     val formState by viewModel.formState.collectAsState()
     val translationResult by viewModel.translationResult.collectAsState()
+    val advisorResult by viewModel.advisorResult.collectAsState()
+    val technicalReport by viewModel.technicalReport.collectAsState()
     val profile by viewModel.userProfile.collectAsState()
-
     val apiKey = profile?.openRouterApiKey ?: ""
 
     val permissionsState = rememberMultiplePermissionsState(
-        listOf(
-            Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.CAMERA
-        )
+        listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     )
 
-    // Voice input launcher
     val voiceLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val data = result.data
-        val results = data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
-        if (!results.isNullOrEmpty()) {
-            viewModel.updateDescriptionUa(results[0])
+        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let {
+            viewModel.updateDescriptionUa(it)
+            // Auto-translate if API key is set
+            if (apiKey.isNotEmpty()) viewModel.translate(apiKey)
         }
     }
 
-    // Camera launcher
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        // Photo taken - for now we just note it
-        // In a full implementation, save to file and get URI
-    }
-
-    // Gallery launcher
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.setPhotoUri(it.toString()) }
-    }
+    ) { uri: Uri? -> uri?.let { viewModel.setPhotoUri(it.toString()) } }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(DarkBg)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Header
+        // ==================== HEADER ====================
         Text(
-            text = "⚡ Nový záznam",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary
+            text = "POMOCNIK",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = NeonOrange,
+            letterSpacing = 8.sp
+        )
+        Text(
+            text = "pracovní asistent",
+            fontSize = 12.sp,
+            color = TextGray,
+            letterSpacing = 4.sp
         )
 
-        if (apiKey.isEmpty()) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // ==================== MODE SWITCH ====================
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DarkSurface, RoundedCornerShape(14.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            FilterChip(
+                selected = formState.mode == "submit",
+                onClick = { viewModel.setMode("submit") },
+                label = { Text("📝 Переклад", fontSize = 13.sp) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = NeonOrange,
+                    selectedLabelColor = Color.White,
+                    containerColor = Color.Transparent
                 )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            FilterChip(
+                selected = formState.mode == "advisor",
+                onClick = { viewModel.setMode("advisor") },
+                label = { Text("🔧 Порадник", fontSize = 13.sp) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = NeonBlue,
+                    selectedLabelColor = Color.White,
+                    containerColor = Color.Transparent
+                )
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ==================== VOICE BUTTON ====================
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .shadow(16.dp, CircleShape)
+                .clip(CircleShape)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(NeonOrange, Color(0xFFCC5500))
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            IconButton(
+                onClick = {
+                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk")
+                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
+                    }
+                    voiceLauncher.launch(intent)
+                },
+                modifier = Modifier.fillMaxSize()
             ) {
-                Text(
-                    text = "⚠️ Nejprve nastavte API klíč v Nastavení",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onErrorContainer
+                Icon(
+                    Icons.Filled.Mic,
+                    contentDescription = "Диктувати",
+                    tint = Color.White,
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }
 
-        // Order ID
-        OutlinedTextField(
-            value = formState.orderId,
-            onValueChange = viewModel::updateOrderId,
-            label = { Text("Číslo zakázky") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-        )
-
-        // Work Type
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            FilterChip(
-                selected = formState.workType == "E",
-                onClick = { viewModel.updateWorkType("E") },
-                label = { Text("⚡ Elektrická") }
-            )
-            FilterChip(
-                selected = formState.workType == "M",
-                onClick = { viewModel.updateWorkType("M") },
-                label = { Text("🔧 Mechanická") }
-            )
-        }
-
-        // Time fields
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedTextField(
-                value = formState.startTime,
-                onValueChange = viewModel::updateStartTime,
-                label = { Text("Začátek") },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("07:00") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-            OutlinedTextField(
-                value = formState.endTime,
-                onValueChange = viewModel::updateEndTime,
-                label = { Text("Konec") },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("15:30") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
-        }
-
-        if (formState.hours > 0) {
-            Text(
-                text = "⏱️ ${formState.hours} hodin",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        // Description with voice button
+        Spacer(modifier = Modifier.height(12.dp))
         Text(
-            text = "Popis práce (ukrajinsky)",
-            style = MaterialTheme.typography.labelLarge
+            text = "Натисни і говори",
+            fontSize = 14.sp,
+            color = TextGray,
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = "або пиши нижче",
+            fontSize = 12.sp,
+            color = TextGray.copy(alpha = 0.5f),
+            textAlign = TextAlign.Center
         )
 
-        Row(
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // ==================== TEXT INPUT ====================
+        Card(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkCard)
         ) {
-            OutlinedTextField(
-                value = formState.descriptionUa,
-                onValueChange = viewModel::updateDescriptionUa,
-                label = { Text("Popište co jste udělal...") },
-                modifier = Modifier.weight(1f),
-                minLines = 4,
-                maxLines = 10
-            )
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Button(
-                    onClick = {
-                        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "uk")
-                            putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("🇺🇦 Українською", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    if (formState.descriptionUa.isNotEmpty()) {
+                        TextButton(onClick = { viewModel.updateDescriptionUa("") }) {
+                            Text("✕", color = TextGray, fontSize = 16.sp)
                         }
-                        voiceLauncher.launch(intent)
-                    },
-                    enabled = permissionsState.allPermissionsGranted,
-                    content = { Icon(Icons.Default.Mic, contentDescription = "Voice") }
-                )
-            }
-        }
+                    }
+                }
 
-        // Translate button
-        Button(
-            onClick = { viewModel.translate(apiKey) },
-            enabled = formState.descriptionUa.isNotBlank() && !formState.isTranslating && apiKey.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            if (formState.isTranslating) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
+                OutlinedTextField(
+                    value = formState.descriptionUa,
+                    onValueChange = viewModel::updateDescriptionUa,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp),
+                    placeholder = { Text("Опиши що зробив...", color = TextGray.copy(alpha = 0.3f)) },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = NeonOrange,
+                        unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                        focusedTextColor = TextWhite,
+                        unfocusedTextColor = TextWhite,
+                        cursorColor = NeonOrange
+                    ),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Překládám...")
-            } else {
-                Icon(Icons.Default.Translate, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Přeložit do češtiny")
-            }
-        }
 
-        // Translation result
-        if (translationResult != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "🇨🇿 Překlad:",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Quick action chips
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = formState.workType == "E",
+                        onClick = { viewModel.updateWorkType("E") },
+                        label = { Text("⚡ E", fontSize = 13.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NeonOrange,
+                            selectedLabelColor = Color.White
+                        )
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = translationResult!!,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    FilterChip(
+                        selected = formState.workType == "M",
+                        onClick = { viewModel.updateWorkType("M") },
+                        label = { Text("🔧 M", fontSize = 13.sp) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = NeonBlue,
+                            selectedLabelColor = Color.White
+                        )
                     )
+
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    // Photo button
+                    IconButton(
+                        onClick = { galleryLauncher.launch("image/*") },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(DarkSurface)
+                    ) {
+                        Icon(
+                            Icons.Outlined.Image,
+                            contentDescription = "Фото",
+                            tint = if (formState.photoUri != null) NeonOrange else TextGray
+                        )
+                    }
                 }
             }
         }
 
-        // Materials
-        OutlinedTextField(
-            value = formState.materials,
-            onValueChange = viewModel::updateMaterials,
-            label = { Text("Materiály (volitelné)") },
-            modifier = Modifier.fillMaxWidth(),
-            minLines = 2
-        )
+        // ==================== ACTION BUTTON (Translate OR Advisor) ====================
+        if (formState.descriptionUa.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
 
-        // Photo attachment
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            OutlinedButton(
-                onClick = { galleryLauncher.launch("image/*") },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Foto z galerie")
-            }
-            OutlinedButton(
-                onClick = { cameraLauncher.launch(null) },
-                modifier = Modifier.weight(1f)
-            ) {
-                Icon(Icons.Default.CameraAlt, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Vyfotit")
-            }
-        }
-
-        if (formState.photoUri != null) {
-            Text(
-                text = "📸 Foto připojeno ✓",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-        }
-
-        // Save button
-        Button(
-            onClick = { viewModel.saveEntry(apiKey) },
-            enabled = !formState.isSaving && formState.descriptionUa.isNotBlank() && apiKey.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary
-            )
-        ) {
-            if (formState.isSaving) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Ukládám...")
+            if (formState.mode == "advisor") {
+                // Advisor mode button
+                Button(
+                    onClick = { viewModel.askAdvisor(apiKey) },
+                    enabled = !formState.isTranslating && apiKey.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
+                ) {
+                    AnimatedContent(targetState = formState.isTranslating) { translating ->
+                        if (translating) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Думаю...", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Lightbulb, null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("ЗАПИТАТИ ПОРАДУ", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
+                        }
+                    }
+                }
             } else {
-                Icon(Icons.Default.Save, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Uložit záznam")
+                // Translate mode button
+                Button(
+                    onClick = { viewModel.translate(apiKey) },
+                    enabled = !formState.isTranslating && apiKey.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonOrange)
+                ) {
+                    AnimatedContent(targetState = formState.isTranslating) { translating ->
+                        if (translating) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text("Перекладаю...", color = Color.White, fontWeight = FontWeight.SemiBold)
+                            }
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Translate, null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Text("ПЕРЕКЛАСТИ → CZ", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                            }
+                        }
+                    }
+                }
             }
         }
 
-        // Error message
-        if (formState.translationError != null) {
-            Text(
-                text = formState.translationError!!,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodyMedium
-            )
+        // ==================== TRANSLATION RESULT ====================
+        AnimatedVisibility(
+            visible = translationResult != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+            exit = fadeOut()
+        ) {
+            translationResult?.let { text ->
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkCard)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🇨🇿 Переклад", color = NeonBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    IconButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("translation", text))
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) { Icon(Icons.Outlined.ContentCopy, "Копіювати", tint = TextGray, modifier = Modifier.size(18.dp)) }
+                                    IconButton(
+                                        onClick = {
+                                            val share = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
+                                            context.startActivity(Intent.createChooser(share, "Поділитися"))
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) { Icon(Icons.Outlined.Share, "Поділитися", tint = NeonOrange, modifier = Modifier.size(18.dp)) }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = text, color = TextWhite, fontSize = 16.sp, lineHeight = 24.sp)
+                        }
+                    }
+
+                    // Generate report button
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { viewModel.generateReport(apiKey) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
+                    ) {
+                        Icon(Icons.Filled.Description, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Згенерувати технічну зправу", fontSize = 13.sp)
+                    }
+                }
+            }
         }
 
-        // Success message
-        if (formState.saveSuccess) {
+        // ==================== ADVISOR RESULT ====================
+        AnimatedVisibility(
+            visible = advisorResult != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+            exit = fadeOut()
+        ) {
+            advisorResult?.let { text ->
+                Column {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkCard)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🔧 Порада", color = NeonBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("advice", text))
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) { Icon(Icons.Outlined.ContentCopy, "Копіювати", tint = TextGray, modifier = Modifier.size(18.dp)) }
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = text, color = TextWhite, fontSize = 15.sp, lineHeight = 22.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== TECHNICAL REPORT ====================
+        AnimatedVisibility(
+            visible = technicalReport != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+            exit = fadeOut()
+        ) {
+            technicalReport?.let { text ->
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkSurface)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text("📋 Технічна зправа (SAP IW41)", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(text = text, color = TextWhite, fontSize = 14.sp, lineHeight = 22.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== SAVE BUTTON ====================
+                    Button(
+                        onClick = { viewModel.saveEntry(apiKey) },
+                        enabled = !formState.isSaving && apiKey.isNotEmpty(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NeonBlue
+                        )
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("ЗБЕРЕГТИ ЗАПИС", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ==================== API KEY WARNING ====================
+        if (apiKey.isEmpty()) {
+            Spacer(modifier = Modifier.height(24.dp))
             Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                    containerColor = NeonOrange.copy(alpha = 0.1f)
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("⚡", fontSize = 20.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Введи API ключ в налаштуваннях", color = NeonOrange, fontSize = 13.sp)
+                }
+            }
+        }
+
+        // Success snackbar-like indicator
+        AnimatedVisibility(visible = formState.saveSuccess) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = NeonBlue.copy(alpha = 0.15f)
                 )
             ) {
                 Text(
-                    text = "✅ Záznam úspěšně uložen!",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    style = MaterialTheme.typography.bodyLarge
+                    text = "✅ Збережено!",
+                    modifier = Modifier.padding(12.dp),
+                    color = NeonBlue,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }

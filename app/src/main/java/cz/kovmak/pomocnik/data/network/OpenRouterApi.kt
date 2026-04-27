@@ -12,7 +12,8 @@ import retrofit2.http.POST
 
 data class TranslationRequest(
     val model: String = "google/gemini-2.0-flash-001",
-    val messages: List<Message>
+    val messages: List<Message>,
+    val temperature: Double = 0.3
 )
 
 data class Message(
@@ -41,7 +42,7 @@ interface OpenRouterApi {
 
         fun create(apiKey: String): OpenRouterApi {
             val loggingInterceptor = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.BODY
+                level = HttpLoggingInterceptor.Level.NONE
             }
 
             val authInterceptor = Interceptor { chain ->
