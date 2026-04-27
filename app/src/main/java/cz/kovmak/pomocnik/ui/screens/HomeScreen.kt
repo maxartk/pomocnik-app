@@ -442,23 +442,23 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
 
         // ==================== SAVE BUTTON ====================
-                    Button(
-                        onClick = { viewModel.saveEntry(apiKey) },
-                        enabled = !formState.isSaving && apiKey.isNotEmpty(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = NeonBlue
-                        )
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("ЗБЕРЕГТИ ЗАПИС", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        }
-                    }
+        if (translationResult != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = { viewModel.saveEntry(apiKey) },
+                enabled = !formState.isSaving && apiKey.isNotEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NeonBlue
+                )
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.Save, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("ЗБЕРЕГТИ ЗАПИС", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
             }
         }
