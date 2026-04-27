@@ -74,8 +74,9 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
     }
 
-    // Auto-launch voice input after permission is granted
+    // Auto-launch after permission is granted
     var launchVoiceAfterPermission by remember { mutableStateOf(false) }
+    var launchCameraAfterPermission by remember { mutableStateOf(false) }
     LaunchedEffect(permissionsState.allPermissionsGranted) {
         if (launchVoiceAfterPermission && permissionsState.allPermissionsGranted) {
             launchVoiceAfterPermission = false
@@ -87,6 +88,15 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
             }
             voiceLauncher.launch(intent)
+        }
+        if (launchCameraAfterPermission && permissionsState.allPermissionsGranted) {
+            launchCameraAfterPermission = false
+            val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
+                it.parentFile?.mkdirs()
+            }
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+            cameraImageUri = uri
+            cameraLauncher.launch(uri)
         }
     }
 
@@ -349,15 +359,20 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            // Camera button
+                            // Camera button — request permission first
                             OutlinedButton(
                                 onClick = {
-                                    val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
-                                        it.parentFile?.mkdirs()
+                                    if (!permissionsState.allPermissionsGranted) {
+                                        launchCameraAfterPermission = true
+                                        permissionsState.launchMultiplePermissionRequest()
+                                    } else {
+                                        val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
+                                            it.parentFile?.mkdirs()
+                                        }
+                                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                                        cameraImageUri = uri
+                                        cameraLauncher.launch(uri)
                                     }
-                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
-                                    cameraImageUri = uri
-                                    cameraLauncher.launch(uri)
                                 },
                                 modifier = Modifier.weight(1f).height(48.dp),
                                 shape = RoundedCornerShape(12.dp),
