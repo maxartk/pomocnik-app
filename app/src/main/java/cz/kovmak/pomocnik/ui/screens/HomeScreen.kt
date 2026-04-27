@@ -61,6 +61,16 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     )
 
+    val voiceLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let {
+            viewModel.updateDescriptionUa(it)
+            // Auto-translate if API key is set
+            if (apiKey.isNotEmpty()) viewModel.translate(apiKey)
+        }
+    }
+
     // Auto-launch voice input after permission is granted
     var launchVoiceAfterPermission by remember { mutableStateOf(false) }
     LaunchedEffect(permissionsState.allPermissionsGranted) {
@@ -72,16 +82,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
             }
             voiceLauncher.launch(intent)
-        }
-    }
-
-    val voiceLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let {
-            viewModel.updateDescriptionUa(it)
-            // Auto-translate if API key is set
-            if (apiKey.isNotEmpty()) viewModel.translate(apiKey)
         }
     }
 

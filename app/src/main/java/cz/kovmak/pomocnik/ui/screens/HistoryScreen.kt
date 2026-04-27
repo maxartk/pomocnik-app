@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,7 @@ private val DarkSurface = Color(0xFF16213E)
 private val TextWhite = Color(0xFFE8E8E8)
 private val TextGray = Color(0xFF8892B0)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
     val context = LocalContext.current
