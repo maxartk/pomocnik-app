@@ -74,6 +74,21 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
     }
 
+    // Gallery picker
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? -> uri?.let { viewModel.setPhotoUri(it.toString()) } }
+
+    // Camera launcher
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success && cameraImageUri != null) {
+            viewModel.setPhotoUri(cameraImageUri.toString())
+        }
+    }
+
     // Auto-launch after permission is granted
     var launchVoiceAfterPermission by remember { mutableStateOf(false) }
     var launchCameraAfterPermission by remember { mutableStateOf(false) }
@@ -97,21 +112,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
             cameraImageUri = uri
             cameraLauncher.launch(uri)
-        }
-    }
-
-    // Gallery picker
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? -> uri?.let { viewModel.setPhotoUri(it.toString()) } }
-
-    // Camera launcher
-    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success: Boolean ->
-        if (success && cameraImageUri != null) {
-            viewModel.setPhotoUri(cameraImageUri.toString())
         }
     }
 
