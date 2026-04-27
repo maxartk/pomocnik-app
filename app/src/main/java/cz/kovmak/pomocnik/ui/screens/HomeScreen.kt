@@ -78,7 +78,9 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             launchVoiceAfterPermission = false
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uk-UA")
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
             }
             voiceLauncher.launch(intent)
@@ -169,7 +171,9 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                     }
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk")
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
+                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uk-UA")
+                        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
                         putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
                     }
                     voiceLauncher.launch(intent)
@@ -460,7 +464,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             }
         }
 
-        // ==================== SAVE BUTTON ====================
+        // ==================== SAVE & EMAIL BUTTONS ====================
         if (translationResult != null) {
             Spacer(modifier = Modifier.height(12.dp))
             Button(
@@ -479,6 +483,42 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("ЗБЕРЕГТИ ЗАПИС", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                 }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Email button - sends full report with technical report
+            OutlinedButton(
+                onClick = {
+                    val s = formState
+                    val translation = translationResult ?: ""
+                    val report = technicalReport ?: ""
+                    val emailBody = buildString {
+                        append("⚡ ${if (s.workType == "E") "Elektrická" else "Mechanická"} | #${s.orderId}\n")
+                        append("🕐 ${s.startTime}–${s.endTime} (${s.hours}h)\n")
+                        append("👷 ${profile?.name ?: ""} (${profile?.email ?: ""})\n\n")
+                        append("🇺🇦 UA:\n${s.descriptionUa}\n\n")
+                        append("🇨🇿 CZ:\n$translation\n")
+                        if (report.isNotEmpty()) {
+                            append("\n📋 Technická zpráva:\n$report\n")
+                        }
+                    }
+                    val subject = "✅ Hlášení práce - Zakázka ${s.orderId} | ${profile?.name ?: ""}"
+                    val emailIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "message/rfc822"
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("kovmak82cz@gmail.com"))
+                        putExtra(Intent.EXTRA_SUBJECT, subject)
+                        putExtra(Intent.EXTRA_TEXT, emailBody)
+                    }
+                    context.startActivity(Intent.createChooser(emailIntent, "Відправити звіт"))
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
+            ) {
+                Icon(Icons.Filled.Email, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("ВІДПРАВИТИ НА ПОШТУ", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             }
         }
 

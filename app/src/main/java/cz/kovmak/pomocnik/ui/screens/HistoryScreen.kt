@@ -187,6 +187,19 @@ fun EntryCard(entry: WorkEntry, onDelete: () -> Unit, onShare: () -> Unit) {
                 )
             }
 
+            // Technical report
+            if (entry.technicalReport.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    entry.technicalReport,
+                    color = NeonBlue,
+                    fontSize = 12.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    lineHeight = 16.sp
+                )
+            }
+
             // Meta row
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -216,13 +229,16 @@ fun EntryCard(entry: WorkEntry, onDelete: () -> Unit, onShare: () -> Unit) {
 }
 
 private fun shareEntry(context: android.content.Context, entry: WorkEntry) {
+    val reportSection = if (entry.technicalReport.isNotEmpty()) {
+        "\n\n📋 Technická zpráva:\n${entry.technicalReport}"
+    } else ""
     val text = """
 ⚡ ${if (entry.workType == "E") "Elektrická" else "Mechanická"} | #${entry.orderId}
 🕐 ${entry.startTime}-${entry.endTime} (${entry.hours}h)
 
 ${entry.descriptionCz}
 
-🇺🇦 ${entry.descriptionUa}
+🇺🇦 ${entry.descriptionUa}$reportSection
 """.trimIndent()
 
     val intent = Intent(Intent.ACTION_SEND).apply {

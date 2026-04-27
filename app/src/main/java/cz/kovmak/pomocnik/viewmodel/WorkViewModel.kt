@@ -164,9 +164,11 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
                 val descCz = _translationResult.value ?: repository.translateToCzech(state.descriptionUa, apiKey)
+                val techReport = _technicalReport.value ?: ""
                 val entry = WorkEntry(
                     orderId = state.orderId, workType = state.workType,
                     descriptionUa = state.descriptionUa, descriptionCz = descCz,
+                    technicalReport = techReport,
                     materials = state.materials, startTime = state.startTime,
                     endTime = state.endTime, hours = state.hours,
                     photoUri = state.photoUri, userName = profile?.name ?: "",

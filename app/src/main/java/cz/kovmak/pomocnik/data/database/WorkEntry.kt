@@ -21,6 +21,9 @@ data class WorkEntry(
     @ColumnInfo(name = "description_cz")
     val descriptionCz: String = "",
 
+    @ColumnInfo(name = "technical_report")
+    val technicalReport: String = "",
+
     @ColumnInfo(name = "materials")
     val materials: String = "",
 
