@@ -10,15 +10,25 @@ import retrofit2.http.Body
 import retrofit2.http.Header
 import retrofit2.http.POST
 
-data class TranslationRequest(
-    val model: String = "google/gemini-2.0-flash-001",
-    val messages: List<Message>,
-    val temperature: Double = 0.3
+data class ContentPart(
+    val type: String,
+    val text: String? = null,
+    val image_url: ImageUrl? = null
+)
+
+data class ImageUrl(
+    val url: String
 )
 
 data class Message(
     val role: String,
-    val content: String
+    val content: Any
+)
+
+data class TranslationRequest(
+    val model: String = "google/gemini-2.0-flash-001",
+    val messages: List<Message>,
+    val temperature: Double = 0.3
 )
 
 data class TranslationResponse(
@@ -26,7 +36,12 @@ data class TranslationResponse(
 )
 
 data class Choice(
-    val message: Message
+    val message: MessageContent
+)
+
+data class MessageContent(
+    val role: String,
+    val content: String
 )
 
 interface OpenRouterApi {
@@ -47,7 +62,7 @@ interface OpenRouterApi {
 
             val authInterceptor = Interceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .header("Authorization", "Bearer $apiKey")
+                    .header("Authorization", "Bearer \$apiKey")
                     .header("Content-Type", "application/json")
                     .header("HTTP-Referer", "https://github.com/kovmak/pomocnik")
                     .header("X-Title", "Pomocnik")

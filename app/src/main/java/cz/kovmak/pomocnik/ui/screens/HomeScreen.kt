@@ -25,16 +25,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import cz.kovmak.pomocnik.viewmodel.WorkViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import java.io.File
 
 // Modern color palette
 private val NeonOrange = Color(0xFFFF6B35)
@@ -42,7 +46,6 @@ private val NeonBlue = Color(0xFF00B4D8)
 private val DarkBg = Color(0xFF0A0E21)
 private val DarkCard = Color(0xFF1A1F35)
 private val DarkSurface = Color(0xFF16213E)
-private val GlowOrange = Color(0x44FF6B35)
 private val TextWhite = Color(0xFFE8E8E8)
 private val TextGray = Color(0xFF8892B0)
 
@@ -87,9 +90,20 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
     }
 
+    // Gallery picker
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? -> uri?.let { viewModel.setPhotoUri(it.toString()) } }
+
+    // Camera launcher
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success && cameraImageUri != null) {
+            viewModel.setPhotoUri(cameraImageUri.toString())
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -165,8 +179,8 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             IconButton(
                 onClick = {
                     if (!permissionsState.allPermissionsGranted) {
-                        permissionsState.launchMultiplePermissionRequest()
                         launchVoiceAfterPermission = true
+                        permissionsState.launchMultiplePermissionRequest()
                         return@IconButton
                     }
                     val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -270,7 +284,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
 
                     Spacer(modifier = Modifier.weight(1f))
 
-                    // Photo button
+                    // Photo button (gallery) - visible in both modes
                     IconButton(
                         onClick = { galleryLauncher.launch("image/*") },
                         modifier = Modifier
@@ -279,9 +293,94 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                     ) {
                         Icon(
                             Icons.Outlined.Image,
-                            contentDescription = "Фото",
+                            contentDescription = "Галерея",
                             tint = if (formState.photoUri != null) NeonOrange else TextGray
                         )
+                    }
+                }
+            }
+        }
+
+        // ==================== PHOTO DISPLAY + CAMERA (ADVISOR MODE) ====================
+        if (formState.mode == "advisor") {
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkCard)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("📷 Фото проблеми", color = NeonBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (formState.photoUri != null) {
+                        // Photo thumbnail with remove button
+                        Box(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            AsyncImage(
+                                model = formState.photoUri,
+                                contentDescription = "Фото",
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(200.dp)
+                                    .clip(RoundedCornerShape(12.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                            // Remove button overlay
+                            IconButton(
+                                onClick = { viewModel.setPhotoUri(null) },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                            ) {
+                                Icon(Icons.Filled.Close, "Видалити", tint = Color.White, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("✅ Фото прикріплено", color = NeonBlue, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        // Buttons to add photo
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Camera button
+                            OutlinedButton(
+                                onClick = {
+                                    val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
+                                        it.parentFile?.mkdirs()
+                                    }
+                                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                                    cameraImageUri = uri
+                                    cameraLauncher.launch(uri)
+                                },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue)
+                            ) {
+                                Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Камера", fontSize = 13.sp)
+                            }
+                            // Gallery button
+                            OutlinedButton(
+                                onClick = { galleryLauncher.launch("image/*") },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
+                            ) {
+                                Icon(Icons.Outlined.Image, null, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Галерея", fontSize = 13.sp)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Прикріпи фото — AI побачить проблему", color = TextGray.copy(alpha = 0.5f), fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
@@ -311,7 +410,8 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Filled.Lightbulb, null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Text("ЗАПИТАТИ ПОРАДУ", color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                                val btnText = if (formState.photoUri != null) "ЗАПИТАТИ З ФОТО 📷" else "ЗАПИТАТИ ПОРАДУ"
+                                Text(btnText, color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                             }
                         }
                     }
@@ -424,13 +524,22 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text("🔧 Порада", color = NeonBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                IconButton(
-                                    onClick = {
-                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("advice", text))
-                                    },
-                                    modifier = Modifier.size(32.dp)
-                                ) { Icon(Icons.Outlined.ContentCopy, "Копіювати", tint = TextGray, modifier = Modifier.size(18.dp)) }
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    IconButton(
+                                        onClick = {
+                                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("advice", text))
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) { Icon(Icons.Outlined.ContentCopy, "Копіювати", tint = TextGray, modifier = Modifier.size(18.dp)) }
+                                    IconButton(
+                                        onClick = {
+                                            val share = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
+                                            context.startActivity(Intent.createChooser(share, "Поділитися"))
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) { Icon(Icons.Outlined.Share, "Поділитися", tint = NeonOrange, modifier = Modifier.size(18.dp)) }
+                                }
                             }
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(text = text, color = TextWhite, fontSize = 15.sp, lineHeight = 22.sp)

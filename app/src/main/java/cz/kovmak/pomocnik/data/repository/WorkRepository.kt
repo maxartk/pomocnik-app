@@ -5,6 +5,8 @@ import cz.kovmak.pomocnik.data.database.WorkEntryDao
 import cz.kovmak.pomocnik.data.network.OpenRouterApi
 import cz.kovmak.pomocnik.data.network.TranslationRequest
 import cz.kovmak.pomocnik.data.network.Message
+import cz.kovmak.pomocnik.data.network.ContentPart
+import cz.kovmak.pomocnik.data.network.ImageUrl
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,7 +27,6 @@ class WorkRepository(
 
     /**
      * Переклад UA→CS у формальному номінальному стилі для SAP.
-     * System prompt + user prompt з n8n workflow "AI - Překlad UA→CS1".
      */
     suspend fun translateToCzech(text: String, apiKey: String): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
@@ -58,7 +59,6 @@ Pravidla překladu:
 
     /**
      * Генерація технічної зправи для SAP IW41.
-     * System prompt + user prompt з n8n workflow "AI - Technická zpráva1".
      */
     suspend fun generateTechnicalReport(
         descriptionCz: String,
@@ -112,9 +112,9 @@ Formát:
 
     /**
      * Режим "Порадник" — запит до досвідченого електрика Knorr-Bremse.
-     * System prompt + user prompt з n8n workflow "AI Production Advisor1".
+     * Підтримує відправку фото (base64) для аналізу через Gemini Vision.
      */
-    suspend fun askAdvisor(question: String, apiKey: String): String = withContext(Dispatchers.IO) {
+    suspend fun askAdvisor(question: String, apiKey: String, imageBase64: String? = null): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
         val systemPrompt = "Ти практичний електрик на виробництві Knorr-Bremse. " +
@@ -122,7 +122,36 @@ Formát:
             "Знаєш типові проблеми гальмівних систем для потягів. " +
             "Відповідаєш завжди українською."
 
-        val userPrompt = """Відповідай як практичний електрик на виробництві з великим досвідом.
+        val userContent: Any = if (imageBase64 != null) {
+            // Multimodal: text + image
+            listOf(
+                ContentPart(
+                    type = "text",
+                    text = """Відповідай як практичний електрик на виробництві з великим досвідом.
+
+Питання: $question
+
+Дивись на фотографію проблеми і дай конкретну пораду.
+
+Вимоги до відповіді:
+- Конкретно і по суті
+- Практичні поради з досвіду
+- Українською мовою
+- Безпека на першому місці
+
+Формат:
+**АНАЛІЗ:** [що трапилось, що видно на фото]
+**ПРИЧИНА:** [найімовірніша причина]
+**ДІЯ:** [конкретні кроки для виправлення]
+**БЕЗПЕКА:** [важливі застереження]"""
+                ),
+                ContentPart(
+                    type = "image_url",
+                    image_url = ImageUrl(url = "data:image/jpeg;base64,$imageBase64")
+                )
+            )
+        } else {
+            """Відповідай як практичний електрик на виробництві з великим досвідом.
 
 Питання: $question
 
@@ -137,12 +166,13 @@ Formát:
 **ПРИЧИНА:** [найімовірніша причина]
 **ДІЯ:** [конкретні кроки]
 **БЕЗПЕКА:** [важливі застереження]"""
+        }
 
         val request = TranslationRequest(
             model = "google/gemini-2.0-flash-001",
             messages = listOf(
                 Message(role = "system", content = systemPrompt),
-                Message(role = "user", content = userPrompt)
+                Message(role = "user", content = userContent)
             ),
             temperature = 0.4
         )
@@ -153,7 +183,6 @@ Formát:
 
     /**
      * OCR розпізнавання коду матеріалу з фото.
-     * System prompt + user prompt з n8n workflow "OCR Agent1".
      */
     suspend fun ocrMaterialCode(imageBase64: String, apiKey: String): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)

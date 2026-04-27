@@ -1,6 +1,10 @@
 package cz.kovmak.pomocnik.viewmodel
 
 import android.app.Application
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import cz.kovmak.pomocnik.data.database.WorkEntry
@@ -9,6 +13,7 @@ import cz.kovmak.pomocnik.data.settings.SettingsRepository
 import cz.kovmak.pomocnik.data.settings.UserProfile
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.ByteArrayOutputStream
 
 data class WorkFormState(
     val orderId: String = "",
@@ -90,6 +95,43 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Convert URI to Base64 string for sending to vision API.
+     * Compresses image to reasonable size for API calls.
+     */
+    private fun uriToBase64(uriString: String): String? {
+        return try {
+            val uri = Uri.parse(uriString)
+            val context = getApplication<Application>()
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val bitmap = BitmapFactory.decodeStream(inputStream)
+            inputStream.close()
+            
+            // Scale down if too large (max 1024px for API efficiency)
+            val maxSize = 1024
+            var width = bitmap.width
+            var height = bitmap.height
+            if (width > maxSize || height > maxSize) {
+                val scale = maxSize.toFloat() / maxOf(width, height)
+                width = (width * scale).toInt()
+                height = (height * scale).toInt()
+                val scaled = Bitmap.createScaledBitmap(bitmap, width, height, true)
+                bitmap.recycle()
+                val outputStream = ByteArrayOutputStream()
+                scaled.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+                scaled.recycle()
+                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+            } else {
+                val outputStream = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, outputStream)
+                bitmap.recycle()
+                Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     /** SUBMIT mode: переклад UA→CS */
     fun translate(apiKey: String) {
         val desc = _formState.value.descriptionUa
@@ -107,15 +149,19 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** ADVISOR mode: питання до електрика */
+    /** ADVISOR mode: питання до електрика (з фото або без) */
     fun askAdvisor(apiKey: String) {
         val question = _formState.value.descriptionUa
         if (question.isBlank()) return
         _formState.update { it.copy(isTranslating = true, translationError = null) }
+        
+        val photoUri = _formState.value.photoUri
+        val imageBase64 = photoUri?.let { uriToBase64(it) }
+        
         viewModelScope.launch {
             try {
                 repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val answer = repository.askAdvisor(question, apiKey)
+                val answer = repository.askAdvisor(question, apiKey, imageBase64)
                 _advisorResult.value = answer
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
@@ -156,7 +202,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         val state = _formState.value
         val profile = userProfile.value
         if (state.descriptionUa.isBlank()) {
-            _formState.update { it.copy(translationError = "Zadejte popis práce") }
+            _formState.update { it.copy(translationError = "Zadejte popis práce") })
             return
         }
         _formState.update { it.copy(isSaving = true) }
