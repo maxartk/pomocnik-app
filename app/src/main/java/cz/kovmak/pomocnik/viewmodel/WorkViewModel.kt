@@ -266,4 +266,12 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun resetError() = _formState.update { it.copy(translationError = null, saveSuccess = false) }
+
+    /** Clear text and all results (translation, advisor, report) */
+    fun clearResults() {
+        _formState.update { it.copy(descriptionUa = "", translationError = null) }
+        _translationResult.value = null
+        _advisorResult.value = null
+        _technicalReport.value = null
+    }
 }

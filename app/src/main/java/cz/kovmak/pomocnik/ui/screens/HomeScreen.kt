@@ -152,8 +152,10 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         // ==================== VOICE BUTTON ====================
         VoiceInputButton(
             onResult = { text ->
-                viewModel.updateDescriptionUa(text)
-                if (apiKey.isNotEmpty()) viewModel.translate(apiKey)
+                // Only fill the text field — NO auto-translate
+                // User presses "ПЕРЕКЛАСТИ" button to translate
+                val current = formState.descriptionUa
+                viewModel.updateDescriptionUa(if (current.isBlank()) text else "$current $text")
             },
             isProcessing = formState.isTranslating
         )
@@ -174,8 +176,11 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                 ) {
                     Text("🇺🇦 Українською", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     if (formState.descriptionUa.isNotEmpty()) {
-                        TextButton(onClick = { viewModel.updateDescriptionUa("") }) {
-                            Text("✕", color = TextGray, fontSize = 16.sp)
+                        IconButton(
+                            onClick = { viewModel.updateDescriptionUa("") },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Filled.Close, "Очистити", tint = Color(0xFFFF4444), modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -198,6 +203,25 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
+
+                // Clear text button — visible when text is present
+                if (formState.descriptionUa.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.updateDescriptionUa("")
+                            // Also clear any previous translation
+                            viewModel.clearResults()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF4444))
+                    ) {
+                        Icon(Icons.Filled.DeleteSweep, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Очистити текст", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
 
                 // Quick action chips
                 Row(
