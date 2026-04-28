@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
@@ -20,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cz.kovmak.pomocnik.data.database.WorkEntry
 import cz.kovmak.pomocnik.viewmodel.HistoryViewModel
@@ -43,6 +47,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
     val entryCount by viewModel.entryCount.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<WorkEntry?>(null) }
+    var selectedEntry by remember { mutableStateOf<WorkEntry?>(null) }
 
     Column(
         modifier = Modifier
@@ -114,13 +119,27 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(entries, key = { it.id }) { entry ->
-                    EntryCard(entry, onDelete = {
-                        entryToDelete = entry
-                        showDeleteDialog = true
-                    }, onShare = { shareEntry(context, entry) })
+                    EntryCard(
+                        entry = entry,
+                        onClick = { selectedEntry = entry },
+                        onDelete = {
+                            entryToDelete = entry
+                            showDeleteDialog = true
+                        },
+                        onShare = { shareEntry(context, entry) }
+                    )
                 }
             }
         }
+    }
+
+    // Detail dialog
+    selectedEntry?.let { entry ->
+        EntryDetailDialog(
+            entry = entry,
+            onDismiss = { selectedEntry = null },
+            onShare = { shareEntry(context, entry) }
+        )
     }
 
     if (showDeleteDialog) {
@@ -143,12 +162,207 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
 }
 
 @Composable
-fun EntryCard(entry: WorkEntry, onDelete: () -> Unit, onShare: () -> Unit) {
+fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Unit) {
+    val dateFormat = SimpleDateFormat("dd.MM.yyyy  HH:mm", Locale.getDefault())
+    val workTypeLabel = if (entry.workType == "E") "⚡ Elektrická" else "🔧 Mechanická"
+    val workTypeColor = if (entry.workType == "E") NeonOrange else NeonBlue
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .fillMaxHeight(0.85f),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkBg)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Header with close button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 8.dp, top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = workTypeLabel,
+                        color = workTypeColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Filled.Close, null, tint = TextGray, modifier = Modifier.size(24.dp))
+                    }
+                }
+
+                // Scrollable content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp)
+                ) {
+                    // Order ID
+                    if (entry.orderId.isNotEmpty()) {
+                        DetailRow("📋 Замовлення", "#${entry.orderId}")
+                    }
+
+                    // Date & time
+                    DetailRow("📅 Дата", dateFormat.format(Date(entry.timestamp)))
+
+                    // Time & hours
+                    if (entry.startTime.isNotEmpty() || entry.endTime.isNotEmpty()) {
+                        DetailRow("🕐 Час", "${entry.startTime}–${entry.endTime} (${entry.hours}h)")
+                    }
+
+                    // Materials
+                    if (entry.materials.isNotEmpty()) {
+                        DetailRow("🔧 Матеріали", entry.materials)
+                    }
+
+                    // UA description
+                    if (entry.descriptionUa.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SectionHeader("🇺🇦 Українською")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkCard)
+                        ) {
+                            Text(
+                                text = entry.descriptionUa,
+                                color = TextWhite,
+                                fontSize = 15.sp,
+                                lineHeight = 22.sp,
+                                modifier = Modifier.padding(14.dp)
+                            )
+                        }
+                    }
+
+                    // CZ translation
+                    if (entry.descriptionCz.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SectionHeader("🇨🇿 Překlad")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkCard)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = entry.descriptionCz,
+                                    color = NeonBlue,
+                                    fontSize = 15.sp,
+                                    lineHeight = 22.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = {
+                                        val clipboard = LocalContext.current.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("translation", entry.descriptionCz))
+                                    },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(Icons.Outlined.ContentCopy, "Копіювати", tint = TextGray, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // Technical report
+                    if (entry.technicalReport.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        SectionHeader("📋 Technická zpráva")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkCard)
+                        ) {
+                            Text(
+                                text = entry.technicalReport,
+                                color = TextWhite,
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                modifier = Modifier.padding(14.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+
+                // Bottom action row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onShare,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
+                    ) {
+                        Icon(Icons.Outlined.Share, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Поділитися", fontSize = 13.sp)
+                    }
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TextGray)
+                    ) {
+                        Text("Закрити", fontSize = 13.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        color = TextGray,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(bottom = 6.dp)
+    )
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(label, color = TextGray, fontSize = 13.sp)
+        Text(value, color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+@Composable
+fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
     val dateFormat = SimpleDateFormat("dd.MM.yyyy  HH:mm", Locale.getDefault())
     val workTypeColor = if (entry.workType == "E") NeonOrange else NeonBlue
     val workTypeIcon = if (entry.workType == "E") "⚡" else "🔧"
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = DarkCard)
