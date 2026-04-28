@@ -163,6 +163,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
 
 @Composable
 fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Unit) {
+    val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd.MM.yyyy  HH:mm", Locale.getDefault())
     val workTypeLabel = if (entry.workType == "E") "⚡ Elektrická" else "🔧 Mechanická"
     val workTypeColor = if (entry.workType == "E") NeonOrange else NeonBlue
@@ -266,7 +267,7 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
                                 )
                                 IconButton(
                                     onClick = {
-                                        val clipboard = LocalContext.current.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                                         clipboard.setPrimaryClip(android.content.ClipData.newPlainText("translation", entry.descriptionCz))
                                     },
                                     modifier = Modifier.size(36.dp)
