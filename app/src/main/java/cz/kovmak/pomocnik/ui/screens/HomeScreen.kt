@@ -3,7 +3,6 @@ package cz.kovmak.pomocnik.ui.screens
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
-import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -22,8 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +33,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import cz.kovmak.pomocnik.viewmodel.WorkViewModel
+import cz.kovmak.pomocnik.ui.components.VoiceInputButton
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
@@ -64,16 +62,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
     )
 
-    val voiceLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()?.let {
-            viewModel.updateDescriptionUa(it)
-            // Auto-translate if API key is set
-            if (apiKey.isNotEmpty()) viewModel.translate(apiKey)
-        }
-    }
-
     // Gallery picker
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -89,21 +77,9 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
     }
 
-    // Auto-launch after permission is granted
-    var launchVoiceAfterPermission by remember { mutableStateOf(false) }
+    // Auto-launch camera after permission is granted
     var launchCameraAfterPermission by remember { mutableStateOf(false) }
     LaunchedEffect(permissionsState.allPermissionsGranted) {
-        if (launchVoiceAfterPermission && permissionsState.allPermissionsGranted) {
-            launchVoiceAfterPermission = false
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uk-UA")
-                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
-            }
-            voiceLauncher.launch(intent)
-        }
         if (launchCameraAfterPermission && permissionsState.allPermissionsGranted) {
             launchCameraAfterPermission = false
             val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
@@ -174,57 +150,12 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==================== VOICE BUTTON ====================
-        Box(
-            modifier = Modifier
-                .size(120.dp)
-                .shadow(16.dp, CircleShape)
-                .clip(CircleShape)
-                .background(
-                    brush = Brush.radialGradient(
-                        colors = listOf(NeonOrange, Color(0xFFCC5500))
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            IconButton(
-                onClick = {
-                    if (!permissionsState.allPermissionsGranted) {
-                        launchVoiceAfterPermission = true
-                        permissionsState.launchMultiplePermissionRequest()
-                        return@IconButton
-                    }
-                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "uk-UA")
-                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "uk-UA")
-                        putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, false)
-                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Надиктуйте опис роботи")
-                    }
-                    voiceLauncher.launch(intent)
-                },
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Icon(
-                    Icons.Filled.Mic,
-                    contentDescription = "Диктувати",
-                    tint = Color.White,
-                    modifier = Modifier.size(48.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "Натисни і говори",
-            fontSize = 14.sp,
-            color = TextGray,
-            textAlign = TextAlign.Center
-        )
-        Text(
-            text = "або пиши нижче",
-            fontSize = 12.sp,
-            color = TextGray.copy(alpha = 0.5f),
-            textAlign = TextAlign.Center
+        VoiceInputButton(
+            onResult = { text ->
+                viewModel.updateDescriptionUa(text)
+                if (apiKey.isNotEmpty()) viewModel.translate(apiKey)
+            },
+            isProcessing = formState.isTranslating
         )
 
         Spacer(modifier = Modifier.height(28.dp))
