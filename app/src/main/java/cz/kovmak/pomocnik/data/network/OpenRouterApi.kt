@@ -10,7 +10,6 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
-import retrofit2.http.Header
 import retrofit2.http.POST
 
 data class ContentPart(
@@ -110,7 +109,6 @@ interface OpenRouterApi {
 
     @POST("chat/completions")
     suspend fun translate(
-        @Header("Authorization") auth: String,
         @Body request: TranslationRequest
     ): TranslationResponse
 
@@ -124,7 +122,7 @@ interface OpenRouterApi {
 
             val authInterceptor = Interceptor { chain ->
                 val request = chain.request().newBuilder()
-                    .header("Authorization", "Bearer \$apiKey")
+                    .header("Authorization", "Bearer $apiKey")
                     .header("Content-Type", "application/json")
                     .header("HTTP-Referer", "https://github.com/kovmak/pomocnik")
                     .header("X-Title", "Pomocnik")

@@ -53,7 +53,7 @@ Pravidla překladu:
             temperature = 0.3
         )
 
-        val response = dynamicApi.translate("Bearer $apiKey", request)
+        val response = dynamicApi.translate(request)
         response.choices.firstOrNull()?.message?.content?.trim() ?: text
     }
 
@@ -106,7 +106,7 @@ Formát:
             temperature = 0.3
         )
 
-        val response = dynamicApi.translate("Bearer $apiKey", request)
+        val response = dynamicApi.translate(request)
         response.choices.firstOrNull()?.message?.content?.trim() ?: ""
     }
 
@@ -177,7 +177,7 @@ Formát:
             temperature = 0.4
         )
 
-        val response = dynamicApi.translate("Bearer $apiKey", request)
+        val response = dynamicApi.translate(request)
         response.choices.firstOrNull()?.message?.content?.trim() ?: ""
     }
 
@@ -210,7 +210,7 @@ NIC DALŠÍHO nepřidávej - pouze JSON."""
             temperature = 0.1
         )
 
-        val response = dynamicApi.translate("Bearer $apiKey", request)
+        val response = dynamicApi.translate(request)
         response.choices.firstOrNull()?.message?.content?.trim() ?: """{"prefix": null, "number": null, "full_code": null}"""
     }
 }
