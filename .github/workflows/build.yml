@@ -1,4 +1,4 @@
-name: Build APK
+name: Build & Release APK
 
 on:
   push:
@@ -27,12 +27,40 @@ jobs:
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
+      - name: Bump version
+        id: version
+        run: |
+          VERSION_CODE=${{ github.run_number }}
+          VERSION_NAME="1.${VERSION_CODE}"
+          echo "versionCode=${VERSION_CODE}" >> $GITHUB_OUTPUT
+          echo "versionName=${VERSION_NAME}" >> $GITHUB_OUTPUT
+          # Patch build.gradle.kts with new version
+          sed -i "s/versionCode = .*/versionCode = ${VERSION_CODE}/" app/build.gradle.kts
+          sed -i "s/versionName = \".*\"/versionName = \"${VERSION_NAME}\"/" app/build.gradle.kts
+          echo "Building version ${VERSION_NAME} (${VERSION_CODE})"
+
       - name: Build Debug APK
         run: ./gradlew assembleDebug --stacktrace
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Rename APK with version
+        run: |
+          VERSION_NAME="${{ steps.version.outputs.versionName }}"
+          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/pomocnik-${VERSION_NAME}.apk
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: pomocnik-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
-          retention-days: 30
+          tag_name: v${{ steps.version.outputs.versionName }}
+          name: Pomocnik v${{ steps.version.outputs.versionName }}
+          body: |
+            ## What's new
+            Auto-build from main branch.
+
+            **Version:** ${{ steps.version.outputs.versionName }}
+            **Build:** #${{ github.run_number }}
+
+            ### Download
+            👇 Download the APK below and install over the previous version.
+          files: app/build/outputs/apk/debug/pomocnik-${{ steps.version.outputs.versionName }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
