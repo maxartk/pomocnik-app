@@ -11,6 +11,7 @@ import cz.kovmak.pomocnik.data.database.WorkEntry
 import cz.kovmak.pomocnik.data.repository.WorkRepository
 import cz.kovmak.pomocnik.data.settings.SettingsRepository
 import cz.kovmak.pomocnik.data.settings.UserProfile
+import cz.kovmak.pomocnik.data.network.ModelConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -138,15 +139,19 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Get the selected model from user profile, fallback to default */
+    private fun getModel(): String = userProfile.value?.selectedModel ?: ModelConfig.DEFAULT_MODEL
+
     /** SUBMIT mode: переклад UA→CS */
     fun translate(apiKey: String) {
         val desc = _formState.value.descriptionUa
         if (desc.isBlank()) return
+        val model = getModel()
         _formState.update { it.copy(isTranslating = true, translationError = null) }
         viewModelScope.launch {
             try {
                 repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val translated = repository.translateToCzech(desc, apiKey)
+                val translated = repository.translateToCzech(desc, apiKey, model)
                 _translationResult.value = translated
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
@@ -159,6 +164,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun askAdvisor(apiKey: String) {
         val question = _formState.value.descriptionUa
         if (question.isBlank()) return
+        val model = getModel()
         _formState.update { it.copy(isTranslating = true, translationError = null) }
         
         val photoUri = _formState.value.photoUri
@@ -175,7 +181,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val answer = repository.askAdvisor(question, apiKey, imageBase64)
+                val answer = repository.askAdvisor(question, apiKey, model, imageBase64)
                 _advisorResult.value = answer
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
@@ -190,6 +196,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         val state = _formState.value
         val translation = _translationResult.value ?: return
         val profile = userProfile.value ?: return
+        val model = getModel()
         _formState.update { it.copy(isTranslating = true) }
         viewModelScope.launch {
             try {
@@ -203,7 +210,8 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     endTime = state.endTime,
                     hours = state.hours,
                     materials = state.materials,
-                    apiKey = apiKey
+                    apiKey = apiKey,
+                    model = model
                 )
                 _technicalReport.value = report
                 _formState.update { it.copy(isTranslating = false) }
@@ -220,11 +228,12 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             _formState.update { it.copy(translationError = "Zadejte popis práce") }
             return
         }
+        val model = getModel()
         _formState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             try {
                 repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val descCz = _translationResult.value ?: repository.translateToCzech(state.descriptionUa, apiKey)
+                val descCz = _translationResult.value ?: repository.translateToCzech(state.descriptionUa, apiKey, model)
                 val techReport = _technicalReport.value ?: ""
                 val entry = WorkEntry(
                     orderId = state.orderId, workType = state.workType,

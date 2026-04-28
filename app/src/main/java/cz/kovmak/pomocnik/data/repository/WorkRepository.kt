@@ -7,6 +7,7 @@ import cz.kovmak.pomocnik.data.network.TranslationRequest
 import cz.kovmak.pomocnik.data.network.Message
 import cz.kovmak.pomocnik.data.network.ContentPart
 import cz.kovmak.pomocnik.data.network.ImageUrl
+import cz.kovmak.pomocnik.data.network.ModelConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,7 +29,7 @@ class WorkRepository(
     /**
      * Переклад UA→CS у формальному номінальному стилі для SAP.
      */
-    suspend fun translateToCzech(text: String, apiKey: String): String = withContext(Dispatchers.IO) {
+    suspend fun translateToCzech(text: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
         val systemPrompt = "Jsi odborný překladatel technických textů UA→CS pro průmyslové systémy SAP. " +
@@ -45,7 +46,7 @@ Pravidla překladu:
 - Vrať POUZE přeložený text, nic jiného"""
 
         val request = TranslationRequest(
-            model = "google/gemini-2.0-flash-001",
+            model = model,
             messages = listOf(
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)
@@ -69,7 +70,8 @@ Pravidla překladu:
         endTime: String,
         hours: Double,
         materials: String,
-        apiKey: String
+        apiKey: String,
+        model: String = ModelConfig.DEFAULT_MODEL
     ): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
@@ -98,7 +100,7 @@ Formát:
 **ZÁVĚR:** [výsledek práce]"""
 
         val request = TranslationRequest(
-            model = "google/gemini-2.0-flash-001",
+            model = model,
             messages = listOf(
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)
@@ -114,7 +116,7 @@ Formát:
      * Режим "Порадник" — запит до досвідченого електрика Knorr-Bremse.
      * Підтримує відправку фото (base64) для аналізу через Gemini Vision.
      */
-    suspend fun askAdvisor(question: String, apiKey: String, imageBase64: String? = null): String = withContext(Dispatchers.IO) {
+    suspend fun askAdvisor(question: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL, imageBase64: String? = null): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
         val systemPrompt = "Ти практичний електрик на виробництві Knorr-Bremse. " +
@@ -169,7 +171,7 @@ Formát:
         }
 
         val request = TranslationRequest(
-            model = "google/gemini-2.0-flash-001",
+            model = model,
             messages = listOf(
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userContent)
@@ -184,7 +186,7 @@ Formát:
     /**
      * OCR розпізнавання коду матеріалу з фото.
      */
-    suspend fun ocrMaterialCode(imageBase64: String, apiKey: String): String = withContext(Dispatchers.IO) {
+    suspend fun ocrMaterialCode(imageBase64: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
         val systemPrompt = "You are an OCR assistant that extracts material codes from images."
@@ -202,7 +204,7 @@ NEBO pokud kód není nalezen:
 NIC DALŠÍHO nepřidávej - pouze JSON."""
 
         val request = TranslationRequest(
-            model = "google/gemini-2.0-flash-001",
+            model = model,
             messages = listOf(
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)

@@ -7,12 +7,15 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
+import cz.kovmak.pomocnik.data.network.ModelConfig
+
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
 data class UserProfile(
     val name: String = "",
     val email: String = "",
     val openRouterApiKey: String = "",
+    val selectedModel: String = ModelConfig.DEFAULT_MODEL,
     val defaultWorkType: String = "E",
     val defaultStartTime: String = "07:00",
     val defaultEndTime: String = "15:30"
@@ -24,6 +27,7 @@ class SettingsRepository(private val context: Context) {
         val NAME = stringPreferencesKey("user_name")
         val EMAIL = stringPreferencesKey("user_email")
         val OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
+        val SELECTED_MODEL = stringPreferencesKey("selected_model")
         val DEFAULT_WORK_TYPE = stringPreferencesKey("default_work_type")
         val DEFAULT_START_TIME = stringPreferencesKey("default_start_time")
         val DEFAULT_END_TIME = stringPreferencesKey("default_end_time")
@@ -34,6 +38,7 @@ class SettingsRepository(private val context: Context) {
             name = prefs[PreferencesKeys.NAME] ?: "",
             email = prefs[PreferencesKeys.EMAIL] ?: "",
             openRouterApiKey = prefs[PreferencesKeys.OPENROUTER_API_KEY] ?: "",
+            selectedModel = prefs[PreferencesKeys.SELECTED_MODEL] ?: ModelConfig.DEFAULT_MODEL,
             defaultWorkType = prefs[PreferencesKeys.DEFAULT_WORK_TYPE] ?: "E",
             defaultStartTime = prefs[PreferencesKeys.DEFAULT_START_TIME] ?: "07:00",
             defaultEndTime = prefs[PreferencesKeys.DEFAULT_END_TIME] ?: "15:30"
@@ -55,6 +60,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateApiKey(apiKey: String) {
         context.dataStore.edit { prefs ->
             prefs[PreferencesKeys.OPENROUTER_API_KEY] = apiKey
+        }
+    }
+
+    suspend fun updateSelectedModel(modelId: String) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.SELECTED_MODEL] = modelId
         }
     }
 

@@ -45,4 +45,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             repository.updateDefaultTimes(startTime, endTime)
         }
     }
+
+    fun updateSelectedModel(modelId: String) {
+        viewModelScope.launch {
+            repository.updateSelectedModel(modelId)
+        }
+    }
 }

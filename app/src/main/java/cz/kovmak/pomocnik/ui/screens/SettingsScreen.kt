@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import cz.kovmak.pomocnik.viewmodel.SettingsViewModel
+import cz.kovmak.pomocnik.data.network.ModelConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +30,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     var startTime by remember { mutableStateOf("07:00") }
     var endTime by remember { mutableStateOf("15:30") }
     var defaultWorkType by remember { mutableStateOf("E") }
+    var selectedModel by remember { mutableStateOf(ModelConfig.DEFAULT_MODEL) }
 
     // Load profile values
     LaunchedEffect(profile) {
@@ -36,6 +38,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             name = it.name
             email = it.email
             apiKey = it.openRouterApiKey
+            selectedModel = it.selectedModel
             startTime = it.defaultStartTime
             endTime = it.defaultEndTime
             defaultWorkType = it.defaultWorkType
@@ -129,10 +132,59 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Získejte klíč na openrouter.ai. Používá se pro překlad UA→CZ (Gemini 2.0 Flash).",
+                    text = "Získejte klíč na openrouter.ai. Používá se pro překlad UA→CZ a analýzu fotek.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+
+        // Model selection section
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "🧠 Модель AI",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                val currentModel = ModelConfig.getModelById(selectedModel)
+
+                Text(
+                    text = "Обрано: ${currentModel.displayName}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Group by category
+                ModelConfig.models.groupBy { it.category }.forEach { (category, models) ->
+                    val categoryLabel = when (category) {
+                        "budget" -> "💰 Бюджетні"
+                        "balanced" -> "🎯 Збалансовані"
+                        "powerful" -> "💎 Потужні"
+                        else -> category
+                    }
+                    Text(
+                        text = categoryLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    models.forEach { model ->
+                        FilterChip(
+                            selected = selectedModel == model.id,
+                            onClick = {
+                                selectedModel = model.id
+                                viewModel.updateSelectedModel(model.id)
+                            },
+                            label = { Text(model.description, style = MaterialTheme.typography.bodySmall) },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
+                        )
+                    }
+                }
             }
         }
 
