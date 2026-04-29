@@ -1,0 +1,200 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="cz.kovmak.pomocnik"
+4    android:versionCode="1"
+5    android:versionName="1.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="26"
+9        android:targetSdkVersion="34" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:4:5-67
+11-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:4:22-64
+12    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+12-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:5:5-71
+12-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:5:22-68
+13    <uses-permission android:name="android.permission.CAMERA" />
+13-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:6:5-65
+13-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:6:22-62
+14    <uses-permission
+14-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:7:5-107
+15        android:name="android.permission.READ_EXTERNAL_STORAGE"
+15-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:7:22-77
+16        android:maxSdkVersion="32" />
+16-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:7:78-104
+17    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+17-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:8:5-76
+17-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:8:22-73
+18
+19    <uses-feature
+19-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:10:5-85
+20        android:name="android.hardware.camera"
+20-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:10:19-57
+21        android:required="false" />
+21-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:10:58-82
+22    <uses-feature
+22-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:11:5-89
+23        android:name="android.hardware.microphone"
+23-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:11:19-61
+24        android:required="false" />
+24-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:11:62-86
+25
+26    <permission
+26-->[androidx.core:core:1.12.0] /home/ubuntu/.gradle/caches/transforms-4/a379259876e91c3034c5339133159047/transformed/core-1.12.0/AndroidManifest.xml:22:5-24:47
+27        android:name="cz.kovmak.pomocnik.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+27-->[androidx.core:core:1.12.0] /home/ubuntu/.gradle/caches/transforms-4/a379259876e91c3034c5339133159047/transformed/core-1.12.0/AndroidManifest.xml:23:9-81
+28        android:protectionLevel="signature" />
+28-->[androidx.core:core:1.12.0] /home/ubuntu/.gradle/caches/transforms-4/a379259876e91c3034c5339133159047/transformed/core-1.12.0/AndroidManifest.xml:24:9-44
+29
+30    <uses-permission android:name="cz.kovmak.pomocnik.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
+30-->[androidx.core:core:1.12.0] /home/ubuntu/.gradle/caches/transforms-4/a379259876e91c3034c5339133159047/transformed/core-1.12.0/AndroidManifest.xml:26:5-97
+30-->[androidx.core:core:1.12.0] /home/ubuntu/.gradle/caches/transforms-4/a379259876e91c3034c5339133159047/transformed/core-1.12.0/AndroidManifest.xml:26:22-94
+31
+32    <application
+32-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:13:5-41:19
+33        android:name="cz.kovmak.pomocnik.PomocnikApp"
+33-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:14:9-36
+34        android:allowBackup="true"
+34-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:15:9-35
+35        android:appComponentFactory="androidx.core.app.CoreComponentFactory"
+35-->[androidx.core:core:1.12.0] /home/ubuntu/.gradle/caches/transforms-4/a379259876e91c3034c5339133159047/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
+36        android:debuggable="true"
+37        android:extractNativeLibs="false"
+38        android:label="@string/app_name"
+38-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:16:9-41
+39        android:supportsRtl="true"
+39-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:17:9-35
+40        android:theme="@style/Theme.Pomocnik"
+40-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:18:9-46
+41        android:usesCleartextTraffic="false" >
+41-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:19:9-45
+42        <activity
+42-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:21:9-30:20
+43            android:name="cz.kovmak.pomocnik.ui.MainActivity"
+43-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:22:13-44
+44            android:exported="true"
+44-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:23:13-36
+45            android:theme="@style/Theme.Pomocnik"
+45-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:24:13-50
+46            android:windowSoftInputMode="adjustResize" >
+46-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:25:13-55
+47            <intent-filter>
+47-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:26:13-29:29
+48                <action android:name="android.intent.action.MAIN" />
+48-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:27:17-69
+48-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:27:25-66
+49
+50                <category android:name="android.intent.category.LAUNCHER" />
+50-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:28:17-77
+50-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:28:27-74
+51            </intent-filter>
+52        </activity>
+53
+54        <provider
+55            android:name="androidx.core.content.FileProvider"
+55-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:33:13-62
+56            android:authorities="\cz.kovmak.pomocnik.fileprovider"
+56-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:34:13-65
+57            android:exported="false"
+57-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:35:13-37
+58            android:grantUriPermissions="true" >
+58-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:36:13-47
+59            <meta-data
+59-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:37:13-39:54
+60                android:name="android.support.FILE_PROVIDER_PATHS"
+60-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:38:17-67
+61                android:resource="@xml/file_paths" />
+61-->/home/ubuntu/pomocnik-app/app/src/main/AndroidManifest.xml:39:17-51
+62        </provider>
+63
+64        <activity
+64-->[androidx.compose.ui:ui-test-manifest:1.6.5] /home/ubuntu/.gradle/caches/transforms-4/5381abff6bc3e6a61ea16d2e4012bedf/transformed/ui-test-manifest-1.6.5/AndroidManifest.xml:23:9-25:39
+65            android:name="androidx.activity.ComponentActivity"
+65-->[androidx.compose.ui:ui-test-manifest:1.6.5] /home/ubuntu/.gradle/caches/transforms-4/5381abff6bc3e6a61ea16d2e4012bedf/transformed/ui-test-manifest-1.6.5/AndroidManifest.xml:24:13-63
+66            android:exported="true" />
+66-->[androidx.compose.ui:ui-test-manifest:1.6.5] /home/ubuntu/.gradle/caches/transforms-4/5381abff6bc3e6a61ea16d2e4012bedf/transformed/ui-test-manifest-1.6.5/AndroidManifest.xml:25:13-36
+67        <activity
+67-->[androidx.compose.ui:ui-tooling-android:1.6.5] /home/ubuntu/.gradle/caches/transforms-4/1e7ce4b463da3a92a57cc1f0a25b9a13/transformed/ui-tooling-release/AndroidManifest.xml:23:9-25:39
+68            android:name="androidx.compose.ui.tooling.PreviewActivity"
+68-->[androidx.compose.ui:ui-tooling-android:1.6.5] /home/ubuntu/.gradle/caches/transforms-4/1e7ce4b463da3a92a57cc1f0a25b9a13/transformed/ui-tooling-release/AndroidManifest.xml:24:13-71
+69            android:exported="true" />
+69-->[androidx.compose.ui:ui-tooling-android:1.6.5] /home/ubuntu/.gradle/caches/transforms-4/1e7ce4b463da3a92a57cc1f0a25b9a13/transformed/ui-tooling-release/AndroidManifest.xml:25:13-36
+70
+71        <provider
+71-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+72            android:name="androidx.startup.InitializationProvider"
+72-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:25:13-67
+73            android:authorities="cz.kovmak.pomocnik.androidx-startup"
+73-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:26:13-68
+74            android:exported="false" >
+74-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:27:13-37
+75            <meta-data
+75-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+76                android:name="androidx.emoji2.text.EmojiCompatInitializer"
+76-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+77                android:value="androidx.startup" />
+77-->[androidx.emoji2:emoji2:1.3.0] /home/ubuntu/.gradle/caches/transforms-4/716662bfe9be327654f9db84443b563e/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+78            <meta-data
+78-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/ubuntu/.gradle/caches/transforms-4/2195f6f71ed1be4c4e2c4e19c6c5cb19/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:29:13-31:52
+79                android:name="androidx.lifecycle.ProcessLifecycleInitializer"
+79-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/ubuntu/.gradle/caches/transforms-4/2195f6f71ed1be4c4e2c4e19c6c5cb19/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:30:17-78
+80                android:value="androidx.startup" />
+80-->[androidx.lifecycle:lifecycle-process:2.7.0] /home/ubuntu/.gradle/caches/transforms-4/2195f6f71ed1be4c4e2c4e19c6c5cb19/transformed/lifecycle-process-2.7.0/AndroidManifest.xml:31:17-49
+81            <meta-data
+81-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:29:13-31:52
+82                android:name="androidx.profileinstaller.ProfileInstallerInitializer"
+82-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:30:17-85
+83                android:value="androidx.startup" />
+83-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:31:17-49
+84        </provider>
+85
+86        <service
+86-->[androidx.room:room-runtime:2.6.1] /home/ubuntu/.gradle/caches/transforms-4/601f7971f22ee9be6eb018c99c30c871/transformed/room-runtime-2.6.1/AndroidManifest.xml:24:9-28:63
+87            android:name="androidx.room.MultiInstanceInvalidationService"
+87-->[androidx.room:room-runtime:2.6.1] /home/ubuntu/.gradle/caches/transforms-4/601f7971f22ee9be6eb018c99c30c871/transformed/room-runtime-2.6.1/AndroidManifest.xml:25:13-74
+88            android:directBootAware="true"
+88-->[androidx.room:room-runtime:2.6.1] /home/ubuntu/.gradle/caches/transforms-4/601f7971f22ee9be6eb018c99c30c871/transformed/room-runtime-2.6.1/AndroidManifest.xml:26:13-43
+89            android:exported="false" />
+89-->[androidx.room:room-runtime:2.6.1] /home/ubuntu/.gradle/caches/transforms-4/601f7971f22ee9be6eb018c99c30c871/transformed/room-runtime-2.6.1/AndroidManifest.xml:27:13-37
+90
+91        <receiver
+91-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:34:9-52:20
+92            android:name="androidx.profileinstaller.ProfileInstallReceiver"
+92-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:35:13-76
+93            android:directBootAware="false"
+93-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:36:13-44
+94            android:enabled="true"
+94-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:37:13-35
+95            android:exported="true"
+95-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:38:13-36
+96            android:permission="android.permission.DUMP" >
+96-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:39:13-57
+97            <intent-filter>
+97-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:40:13-42:29
+98                <action android:name="androidx.profileinstaller.action.INSTALL_PROFILE" />
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:17-91
+98-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:41:25-88
+99            </intent-filter>
+100            <intent-filter>
+100-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:43:13-45:29
+101                <action android:name="androidx.profileinstaller.action.SKIP_FILE" />
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:17-85
+101-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:44:25-82
+102            </intent-filter>
+103            <intent-filter>
+103-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:46:13-48:29
+104                <action android:name="androidx.profileinstaller.action.SAVE_PROFILE" />
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:17-88
+104-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:47:25-85
+105            </intent-filter>
+106            <intent-filter>
+106-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:49:13-51:29
+107                <action android:name="androidx.profileinstaller.action.BENCHMARK_OPERATION" />
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:17-95
+107-->[androidx.profileinstaller:profileinstaller:1.3.1] /home/ubuntu/.gradle/caches/transforms-4/d52ec3edab9355ff27fdde867b67340b/transformed/profileinstaller-1.3.1/AndroidManifest.xml:50:25-92
+108            </intent-filter>
+109        </receiver>
+110    </application>
+111
+112</manifest>
