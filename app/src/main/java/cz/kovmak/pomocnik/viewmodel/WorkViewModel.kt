@@ -170,6 +170,9 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 val translated = repository.translateToCzech(desc, apiKey, model)
                 _translationResult.value = translated
                 _formState.update { it.copy(isTranslating = false) }
+                
+                // Auto-fill SAP fields
+                autoFillSapFields(apiKey)
             } catch (e: Exception) {
                 _formState.update { it.copy(isTranslating = false, translationError = "Chyba: ${e.localizedMessage}") }
             }
