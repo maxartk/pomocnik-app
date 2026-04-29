@@ -37,6 +37,7 @@ import cz.kovmak.pomocnik.ui.components.VoiceInputButton
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
+import cz.kovmak.pomocnik.data.model.SapCatalogs
 
 // Modern color palette
 private val NeonOrange = Color(0xFFFF6B35)
@@ -473,6 +474,133 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             }
         }
 
+        // ==================== SAP FIELDS ====================
+        AnimatedVisibility(
+            visible = translationResult != null,
+            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
+            exit = fadeOut()
+        ) {
+            Column {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = DarkCard)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("📋 SAP поля", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            OutlinedButton(
+                                onClick = { viewModel.autoFillSapFields(apiKey) },
+                                enabled = !formState.isAutoFilling && apiKey.isNotEmpty(),
+                                shape = RoundedCornerShape(10.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue)
+                            ) {
+                                if (formState.isAutoFilling) {
+                                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = NeonBlue, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Заповнюю...", fontSize = 12.sp)
+                                } else {
+                                    Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Авто-заповнити", fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Část obj. (Object Part)
+                        Text("Část obj. (MGLC002)", color = TextGray, fontSize = 11.sp)
+                        DropdownSelector(
+                            selectedCode = formState.sapObjectPart,
+                            entries = SapCatalogs.objectParts,
+                            onSelected = { viewModel.updateSapObjectPart(it) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Popis škody (Damage Description)
+                        Text("Popis škody (MCZ001)", color = TextGray, fontSize = 11.sp)
+                        DropdownSelector(
+                            selectedCode = formState.sapDamageDesc,
+                            entries = SapCatalogs.damageDescriptions,
+                            onSelected = { viewModel.updateSapDamageDesc(it) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Text poškození
+                        OutlinedTextField(
+                            value = formState.sapDamageText,
+                            onValueChange = { viewModel.updateSapDamageText(it) },
+                            label = { Text("Text poškození", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonOrange,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Příčina (Cause)
+                        Text("Příčina (MGL0003)", color = TextGray, fontSize = 11.sp)
+                        DropdownSelector(
+                            selectedCode = formState.sapCause,
+                            entries = SapCatalogs.causes,
+                            onSelected = { viewModel.updateSapCause(it) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Text příčiny
+                        OutlinedTextField(
+                            value = formState.sapCauseText,
+                            onValueChange = { viewModel.updateSapCauseText(it) },
+                            label = { Text("Text příčiny", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonOrange,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Dopad (Impact)
+                        Text("Dopad", color = TextGray, fontSize = 11.sp)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (impact in SapCatalogs.impacts) {
+                                FilterChip(
+                                    selected = formState.sapImpact == impact.code,
+                                    onClick = { viewModel.updateSapImpact(impact.code) },
+                                    label = { Text("${impact.code}. ${impact.description}", fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = NeonBlue,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = DarkSurface
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ==================== ADVISOR RESULT ====================
         AnimatedVisibility(
             visible = advisorResult != null,
@@ -674,5 +802,50 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Composable
+private fun DropdownSelector(
+    selectedCode: String,
+    entries: List<cz.kovmak.pomocnik.data.model.CatalogEntry>,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedEntry = entries.find { it.code == selectedCode }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded },
+        modifier = modifier
+    ) {
+        OutlinedTextField(
+            value = selectedEntry?.let { "${it.code}: ${it.description}" } ?: "",
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.menuAnchor().fillMaxWidth(),
+            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null, tint = TextGray) },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = NeonOrange,
+                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                focusedTextColor = TextWhite,
+                unfocusedTextColor = if (selectedCode.isNotEmpty()) TextWhite else TextGray.copy(alpha = 0.3f)
+            )
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            entries.forEach { entry ->
+                DropdownMenuItem(
+                    text = { Text("${entry.code}: ${entry.description}") },
+                    onClick = {
+                        onSelected(entry.code)
+                        expanded = false
+                    }
+                )
+            }
+        }
     }
 }
