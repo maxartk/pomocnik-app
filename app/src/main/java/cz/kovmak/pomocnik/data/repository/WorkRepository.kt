@@ -7,6 +7,8 @@ import cz.kovmak.pomocnik.data.network.TranslationRequest
 import cz.kovmak.pomocnik.data.network.Message
 import cz.kovmak.pomocnik.data.network.ContentPart
 import cz.kovmak.pomocnik.data.network.ImageUrl
+import cz.kovmak.pomocnik.data.model.SapFieldResult
+import cz.kovmak.pomocnik.data.model.SapCatalogs
 import cz.kovmak.pomocnik.data.network.ModelConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
@@ -181,6 +183,79 @@ Formát:
 
         val response = dynamicApi.translate(request)
         response.choices.firstOrNull()?.message?.content?.trim() ?: ""
+    }
+
+    /**
+     * Витягує SAP поля з опису роботи через AI.
+     * Аналізує UA та CZ опис і визначає коди з каталогів.
+     */
+    suspend fun extractSapFields(
+        descriptionCz: String,
+        descriptionUa: String,
+        apiKey: String,
+        model: String = ModelConfig.DEFAULT_MODEL
+    ): SapFieldResult = withContext(Dispatchers.IO) {
+        val dynamicApi = OpenRouterApi.create(apiKey)
+
+        val catalogsText = SapCatalogs.formatForPrompt()
+
+        val systemPrompt = "Jsi expert na SAP PM modul pro průmyslovou údržbu. " +
+            "Analyzuješ popis práce a přiřazuješ správné kódy z katalogů."
+
+        val userPrompt = """Z analyzuj popis práce a vyplň SAP pole. Vrať POUZE validní JSON.
+
+Popis práce (UA): $descriptionUa
+Popis práce (CZ): $descriptionCz
+
+Dostupné katalogy:
+$catalogsText
+
+Pravidla:
+- Část obj.: vyber nejvhodnější kód z MGLC002 podle popisu
+- Popis škody: vyber kód z MCZ001 který nejlépe odpovídá
+- Text poškození: stručný popis v češtině (1 věta, formální styl)
+- Příčina: vyber kód z MGL0003
+- Text příčiny: stručná příčina v češtině
+- Dopad: 1=Bez vlivu, 2=Omezení výroby, 3=Výpadek výroby (odhadni podle kontextu)
+
+Formát odpovědi (POUZE JSON, nic jiného):
+{
+  "objectPart": "2208",
+  "damageDesc": "1023",
+  "damageText": "Nelze posunout do home pozice",
+  "cause": "1003",
+  "causeText": "DCS zóna",
+  "impact": "3"
+}"""
+
+        val request = TranslationRequest(
+            model = model,
+            messages = listOf(
+                Message(role = "system", content = systemPrompt),
+                Message(role = "user", content = userPrompt)
+            ),
+            temperature = 0.2
+        )
+
+        val response = dynamicApi.translate(request)
+        val rawContent = response.choices.firstOrNull()?.message?.content?.trim() ?: "{}"
+
+        // Parse JSON — use Gson (already in project for multimodal)
+        val gson = com.google.gson.Gson()
+        try {
+            val json = gson.fromJson(rawContent, com.google.gson.JsonObject::class.java)
+            SapFieldResult(
+                objectPart = json.get("objectPart")?.asString ?: "",
+                damageDesc = json.get("damageDesc")?.asString ?: "",
+                damageText = json.get("damageText")?.asString ?: "",
+                cause = json.get("cause")?.asString ?: "",
+                causeText = json.get("causeText")?.asString ?: "",
+                impact = json.get("impact")?.asString ?: ""
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("Pomocnik", "Failed to parse SAP fields JSON: $rawContent", e)
+            SapFieldResult()
+        }
     }
 
     /**
