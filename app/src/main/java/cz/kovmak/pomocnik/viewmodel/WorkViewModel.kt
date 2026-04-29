@@ -254,6 +254,21 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
                 val descCz = _translationResult.value ?: repository.translateToCzech(state.descriptionUa, apiKey, model)
                 val techReport = _technicalReport.value ?: ""
+                
+                // Auto-fill SAP fields if not already populated
+                val sapFields = if (state.sapObjectPart.isBlank() && state.sapDamageDesc.isBlank()) {
+                    repository.extractSapFields(descCz, state.descriptionUa, apiKey, model)
+                } else {
+                    cz.kovmak.pomocnik.data.model.SapFieldResult(
+                        objectPart = state.sapObjectPart,
+                        damageDesc = state.sapDamageDesc,
+                        damageText = state.sapDamageText,
+                        cause = state.sapCause,
+                        causeText = state.sapCauseText,
+                        impact = state.sapImpact
+                    )
+                }
+                
                 val entry = WorkEntry(
                     orderId = state.orderId, workType = state.workType,
                     descriptionUa = state.descriptionUa, descriptionCz = descCz,
@@ -262,12 +277,12 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     endTime = state.endTime, hours = state.hours,
                     photoUri = state.photoUri, userName = profile?.name ?: "",
                     userEmail = profile?.email ?: "",
-                    sapObjectPart = state.sapObjectPart,
-                    sapDamageDesc = state.sapDamageDesc,
-                    sapDamageText = state.sapDamageText,
-                    sapCause = state.sapCause,
-                    sapCauseText = state.sapCauseText,
-                    sapImpact = state.sapImpact,
+                    sapObjectPart = sapFields.objectPart,
+                    sapDamageDesc = sapFields.damageDesc,
+                    sapDamageText = sapFields.damageText,
+                    sapCause = sapFields.cause,
+                    sapCauseText = sapFields.causeText,
+                    sapImpact = sapFields.impact,
                 )
                 repository.insertEntry(entry)
                 _formState.update { it.copy(isSaving = false, saveSuccess = true) }
