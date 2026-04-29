@@ -32,9 +32,11 @@ data class WorkFormState(
     val saveSuccess: Boolean = false,
 
     // SAP fields
+    val sapObjectPartCategory: String = "",
     val sapObjectPart: String = "",
     val sapDamageDesc: String = "",
     val sapDamageText: String = "",
+    val sapCauseCategory: String = "",
     val sapCause: String = "",
     val sapCauseText: String = "",
     val sapImpact: String = "",
@@ -93,13 +95,14 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun updateEndTime(time: String) { _formState.update { it.copy(endTime = time) }; calculateHours() }
     fun setPhotoUri(uri: String?) = _formState.update { it.copy(photoUri = uri) }
     fun setMode(mode: String) = _formState.update { it.copy(mode = mode) }
-
-    fun updateSapObjectPart(code: String) = _formState.update { it.copy(sapObjectPart = code) }
-    fun updateSapDamageDesc(code: String) = _formState.update { it.copy(sapDamageDesc = code) }
-    fun updateSapDamageText(text: String) = _formState.update { it.copy(sapDamageText = text) }
-    fun updateSapCause(code: String) = _formState.update { it.copy(sapCause = code) }
-    fun updateSapCauseText(text: String) = _formState.update { it.copy(sapCauseText = text) }
-    fun updateSapImpact(code: String) = _formState.update { it.copy(sapImpact = code) }
+    fun updateSapObjectPartCategory(v: String) = _formState.update { it.copy(sapObjectPartCategory = v, sapObjectPart = "") }
+    fun updateSapObjectPart(v: String) = _formState.update { it.copy(sapObjectPart = v) }
+    fun updateSapDamageDesc(v: String) = _formState.update { it.copy(sapDamageDesc = v) }
+    fun updateSapDamageText(v: String) = _formState.update { it.copy(sapDamageText = v) }
+    fun updateSapCauseCategory(v: String) = _formState.update { it.copy(sapCauseCategory = v, sapCause = "") }
+    fun updateSapCause(v: String) = _formState.update { it.copy(sapCause = v) }
+    fun updateSapCauseText(v: String) = _formState.update { it.copy(sapCauseText = v) }
+    fun updateSapImpact(v: String) = _formState.update { it.copy(sapImpact = v) }
 
     private fun calculateHours() {
         val s = _formState.value
@@ -262,10 +265,14 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     endTime = state.endTime, hours = state.hours,
                     photoUri = state.photoUri, userName = profile?.name ?: "",
                     userEmail = profile?.email ?: "",
-                    sapObjectPart = state.sapObjectPart,
+                    sapObjectPart = state.sapObjectPartCategory,
+                    sapObjectPartCatalog = "MGLC${state.sapObjectPart}",
                     sapDamageDesc = state.sapDamageDesc,
+                    sapDamageDescCatalog = "MCZ001",
                     sapDamageText = state.sapDamageText,
+                    sapCauseCategory = state.sapCauseCategory,
                     sapCause = state.sapCause,
+                    sapCauseCatalog = "MGLO${state.sapCauseCategory}",
                     sapCauseText = state.sapCauseText,
                     sapImpact = state.sapImpact,
                 )

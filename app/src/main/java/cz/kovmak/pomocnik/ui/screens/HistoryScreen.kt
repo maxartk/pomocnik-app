@@ -449,6 +449,20 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
                 )
             }
 
+            // SAP fields
+            if (entry.sapObjectPart.isNotEmpty() || entry.sapDamageDesc.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Divider(color = TextGray.copy(alpha = 0.2f))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("🔧 SAP PM:", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                if (entry.sapObjectPart.isNotEmpty()) Text("  Část obj.: ${entry.sapObjectPart}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapDamageDesc.isNotEmpty()) Text("  Popis škody: ${entry.sapDamageDesc}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapDamageText.isNotEmpty()) Text("  Text: ${entry.sapDamageText}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapCause.isNotEmpty()) Text("  Příčina: ${entry.sapCause}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapCauseText.isNotEmpty()) Text("  Text příčiny: ${entry.sapCauseText}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapImpact.isNotEmpty()) Text("  Dopad: ${entry.sapImpact}", color = TextWhite, fontSize = 12.sp)
+            }
+
             // Meta row
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
