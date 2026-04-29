@@ -481,13 +481,23 @@ private fun shareEntry(context: android.content.Context, entry: WorkEntry) {
     val reportSection = if (entry.technicalReport.isNotEmpty()) {
         "\n\n📋 Technická zpráva:\n${entry.technicalReport}"
     } else ""
+    val sapSection = if (entry.sapObjectPart.isNotEmpty() || entry.sapDamageDesc.isNotEmpty()) {
+        val sb = StringBuilder("\n\n🔧 SAP PM:")
+        if (entry.sapObjectPart.isNotEmpty()) sb.append("\nČást obj.: MGLC002 ${entry.sapObjectPart}")
+        if (entry.sapDamageDesc.isNotEmpty()) sb.append("\nPopis škody: MCZ001 ${entry.sapDamageDesc}")
+        if (entry.sapDamageText.isNotEmpty()) sb.append("\nText: ${entry.sapDamageText}")
+        if (entry.sapCause.isNotEmpty()) sb.append("\nPříčina: MGL0003 ${entry.sapCause}")
+        if (entry.sapCauseText.isNotEmpty()) sb.append("\nText příčiny: ${entry.sapCauseText}")
+        if (entry.sapImpact.isNotEmpty()) sb.append("\nDopad: ${entry.sapImpact}")
+        sb.toString()
+    } else ""
     val text = """
 ⚡ ${if (entry.workType == "E") "Elektrická" else "Mechanická"} | #${entry.orderId}
 🕐 ${entry.startTime}-${entry.endTime} (${entry.hours}h)
 
 ${entry.descriptionCz}
 
-🇺🇦 ${entry.descriptionUa}$reportSection
+🇺🇦 ${entry.descriptionUa}$reportSection$sapSection
 """.trimIndent()
 
     val intent = Intent(Intent.ACTION_SEND).apply {
