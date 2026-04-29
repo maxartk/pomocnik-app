@@ -202,7 +202,7 @@ Formát:
         val systemPrompt = "Jsi expert na SAP PM modul pro průmyslovou údržbu. " +
             "Analyzuješ popis práce a přiřazuješ správné kódy z katalogů."
 
-        val userPrompt = """Z analyzuj popis práce a vyplň SAP pole. Vrať POUZE validní JSON.
+        val userPrompt = """Analyzuj popis práce a vyplň SAP pole. Vrať POUZE validní JSON bez dalšího textu.
 
 Popis práce (UA): $descriptionUa
 Popis práce (CZ): $descriptionCz
@@ -211,22 +211,15 @@ Dostupné katalogy:
 $catalogsText
 
 Pravidla:
-- Část obj.: vyber nejvhodnější kód z MGLC002 podle popisu
-- Popis škody: vyber kód z MCZ001 který nejlépe odpovídá
+- Část obj.: vyber nejvhodnější kód z MGLC002 podle popisu (jen číslo, např. "2208")
+- Popis škody: vyber kód z MCZ001 který nejlépe odpovídá (jen číslo, např. "1023")
 - Text poškození: stručný popis v češtině (1 věta, formální styl)
-- Příčina: vyber kód z MGL0003
+- Příčina: vyber kód z MGL0003 (jen číslo, např. "1003")
 - Text příčiny: stručná příčina v češtině
-- Dopad: 1=Bez vlivu, 2=Omezení výroby, 3=Výpadek výroby (odhadni podle kontextu)
+- Dopad: 1=Bez vlivu, 2=Omezení výroby, 3=Výpadek výroby
 
-Formát odpovědi (POUZE JSON, nic jiného):
-{
-  "objectPart": "2208",
-  "damageDesc": "1023",
-  "damageText": "Nelze posunout do home pozice",
-  "cause": "1003",
-  "causeText": "DCS zóna",
-  "impact": "3"
-}"""
+Vrať POUZE tento JSON, nic jiného:
+{"objectPart":"2208","damageDesc":"1023","damageText":"Nelze posunout do home pozice","cause":"1003","causeText":"DCS zóna","impact":"3"}"""
 
         val request = TranslationRequest(
             model = model,
@@ -238,13 +231,27 @@ Formát odpovědi (POUZE JSON, nic jiného):
         )
 
         val response = dynamicApi.translate(request)
-        val rawContent = response.choices.firstOrNull()?.message?.content?.trim() ?: "{}"
+        var rawContent = response.choices.firstOrNull()?.message?.content?.trim() ?: "{}"
+        
+        // Strip markdown code fences (```json ... ```) and extract JSON block
+        rawContent = rawContent
+            .replace(Regex("^```json\\s*", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("^```\\s*", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("\\s*```\\s*$"), "")
+            .trim()
+        
+        // Fallback: extract JSON between first { and last }
+        val jsonStart = rawContent.indexOf('{')
+        val jsonEnd = rawContent.lastIndexOf('}')
+        if (jsonStart >= 0 && jsonEnd > jsonStart) {
+            rawContent = rawContent.substring(jsonStart, jsonEnd + 1)
+        }
 
         // Parse JSON — use Gson (already in project for multimodal)
         val gson = com.google.gson.Gson()
         try {
             val json = gson.fromJson(rawContent, com.google.gson.JsonObject::class.java)
-            SapFieldResult(
+            val result = SapFieldResult(
                 objectPart = json.get("objectPart")?.asString ?: "",
                 damageDesc = json.get("damageDesc")?.asString ?: "",
                 damageText = json.get("damageText")?.asString ?: "",
@@ -252,9 +259,11 @@ Formát odpovědi (POUZE JSON, nic jiného):
                 causeText = json.get("causeText")?.asString ?: "",
                 impact = json.get("impact")?.asString ?: ""
             )
+            android.util.Log.d("Pomocnik", "SAP fields extracted: $result")
+            return@withContext result
         } catch (e: Exception) {
-            android.util.Log.e("Pomocnik", "Failed to parse SAP fields JSON: $rawContent", e)
-            SapFieldResult()
+            android.util.Log.e("Pomocnik", "Failed to parse SAP fields JSON: '$rawContent'", e)
+            return@withContext SapFieldResult()
         }
     }
 
