@@ -815,6 +815,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DropdownSelector(
     selectedCode: String,
