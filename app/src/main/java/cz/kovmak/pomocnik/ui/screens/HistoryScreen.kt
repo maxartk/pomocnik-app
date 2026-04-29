@@ -297,6 +297,40 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
                         }
                     }
 
+                    // SAP fields
+                    if (entry.sapObjectPart.isNotEmpty() || entry.sapDamageDesc.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(color = TextGray.copy(alpha = 0.2f))
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SectionHeader("🔧 SAP PM")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkCard)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                if (entry.sapObjectPart.isNotEmpty()) {
+                                    Text("Část obj.: MGLC002 ${entry.sapObjectPart}", color = TextWhite, fontSize = 13.sp)
+                                }
+                                if (entry.sapDamageDesc.isNotEmpty()) {
+                                    Text("Popis škody: MCZ001 ${entry.sapDamageDesc}", color = TextWhite, fontSize = 13.sp)
+                                }
+                                if (entry.sapDamageText.isNotEmpty()) {
+                                    Text("Text: ${entry.sapDamageText}", color = TextWhite, fontSize = 13.sp)
+                                }
+                                if (entry.sapCause.isNotEmpty()) {
+                                    Text("Příčina: MGL0003 ${entry.sapCause}", color = TextWhite, fontSize = 13.sp)
+                                }
+                                if (entry.sapCauseText.isNotEmpty()) {
+                                    Text("Text příčiny: ${entry.sapCauseText}", color = TextWhite, fontSize = 13.sp)
+                                }
+                                if (entry.sapImpact.isNotEmpty()) {
+                                    Text("Dopad: ${entry.sapImpact}", color = TextWhite, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(16.dp))
                 }
 

@@ -258,7 +258,13 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     materials = state.materials, startTime = state.startTime,
                     endTime = state.endTime, hours = state.hours,
                     photoUri = state.photoUri, userName = profile?.name ?: "",
-                    userEmail = profile?.email ?: ""
+                    userEmail = profile?.email ?: "",
+                    sapObjectPart = state.sapObjectPart,
+                    sapDamageDesc = state.sapDamageDesc,
+                    sapDamageText = state.sapDamageText,
+                    sapCause = state.sapCause,
+                    sapCauseText = state.sapCauseText,
+                    sapImpact = state.sapImpact,
                 )
                 repository.insertEntry(entry)
                 _formState.update { it.copy(isSaving = false, saveSuccess = true) }

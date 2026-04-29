@@ -709,6 +709,16 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         if (report.isNotEmpty()) {
                             append("\n📋 Technická zpráva:\n$report\n")
                         }
+                        // SAP fields
+                        if (s.sapObjectPart.isNotEmpty() || s.sapDamageDesc.isNotEmpty()) {
+                            append("\n🔧 SAP PM:\n")
+                            if (s.sapObjectPart.isNotEmpty()) append("  Část obj.: MGLC002 ${s.sapObjectPart}\n")
+                            if (s.sapDamageDesc.isNotEmpty()) append("  Popis škody: MCZ001 ${s.sapDamageDesc}\n")
+                            if (s.sapDamageText.isNotEmpty()) append("  Text: ${s.sapDamageText}\n")
+                            if (s.sapCause.isNotEmpty()) append("  Příčina: MGL0003 ${s.sapCause}\n")
+                            if (s.sapCauseText.isNotEmpty()) append("  Text příčiny: ${s.sapCauseText}\n")
+                            if (s.sapImpact.isNotEmpty()) append("  Dopad: ${s.sapImpact}\n")
+                        }
                     }
                     val subject = "✅ Hlášení práce - Zakázka ${s.orderId} | ${profile?.name ?: ""}"
                     val emailIntent = Intent(Intent.ACTION_SEND).apply {
