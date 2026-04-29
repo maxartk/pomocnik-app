@@ -29,7 +29,16 @@ data class WorkFormState(
     val isTranslating: Boolean = false,
     val translationError: String? = null,
     val isSaving: Boolean = false,
-    val saveSuccess: Boolean = false
+    val saveSuccess: Boolean = false,
+
+    // SAP fields
+    val sapObjectPart: String = "",
+    val sapDamageDesc: String = "",
+    val sapDamageText: String = "",
+    val sapCause: String = "",
+    val sapCauseText: String = "",
+    val sapImpact: String = "",
+    val isAutoFilling: Boolean = false
 )
 
 class WorkViewModel(application: Application) : AndroidViewModel(application) {
@@ -84,6 +93,13 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun updateEndTime(time: String) { _formState.update { it.copy(endTime = time) }; calculateHours() }
     fun setPhotoUri(uri: String?) = _formState.update { it.copy(photoUri = uri) }
     fun setMode(mode: String) = _formState.update { it.copy(mode = mode) }
+
+    fun updateSapObjectPart(code: String) = _formState.update { it.copy(sapObjectPart = code) }
+    fun updateSapDamageDesc(code: String) = _formState.update { it.copy(sapDamageDesc = code) }
+    fun updateSapDamageText(text: String) = _formState.update { it.copy(sapDamageText = text) }
+    fun updateSapCause(code: String) = _formState.update { it.copy(sapCause = code) }
+    fun updateSapCauseText(text: String) = _formState.update { it.copy(sapCauseText = text) }
+    fun updateSapImpact(code: String) = _formState.update { it.copy(sapImpact = code) }
 
     private fun calculateHours() {
         val s = _formState.value
@@ -273,5 +289,33 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         _translationResult.value = null
         _advisorResult.value = null
         _technicalReport.value = null
+    }
+
+    fun autoFillSapFields(apiKey: String) {
+        val state = _formState.value
+        val translation = _translationResult.value ?: state.descriptionUa
+        if (translation.isBlank()) return
+        val model = getModel()
+        _formState.update { it.copy(isAutoFilling = true, translationError = null) }
+        viewModelScope.launch {
+            try {
+                repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
+                val sapFields = repository.extractSapFields(translation, state.descriptionUa, apiKey, model)
+                _formState.update { 
+                    it.copy(
+                        sapObjectPart = sapFields.objectPart,
+                        sapDamageDesc = sapFields.damageDesc,
+                        sapDamageText = sapFields.damageText,
+                        sapCause = sapFields.cause,
+                        sapCauseText = sapFields.causeText,
+                        sapImpact = sapFields.impact,
+                        isAutoFilling = false
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("Pomocnik", "SAP auto-fill error: ${e.message}", e)
+                _formState.update { it.copy(isAutoFilling = false, translationError = "SAP auto-fill chyba: ${e.localizedMessage}") }
+            }
+        }
     }
 }
