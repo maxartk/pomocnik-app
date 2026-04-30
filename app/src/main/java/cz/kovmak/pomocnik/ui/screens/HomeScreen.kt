@@ -39,14 +39,14 @@ import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
 import cz.kovmak.pomocnik.data.model.SapCatalogs
 
-// Modern color palette
-private val NeonOrange = Color(0xFFFF6B35)
-private val NeonBlue = Color(0xFF00B4D8)
-private val DarkBg = Color(0xFF0A0E21)
-private val DarkCard = Color(0xFF1A1F35)
-private val DarkSurface = Color(0xFF16213E)
+// Industrial color palette
+private val NeonOrange = Color(0xFFFFB000)
+private val NeonBlue = Color(0xFF00D4FF)
+private val DarkBg = Color(0xFF080B12)
+private val DarkCard = Color(0xFF1B2433)
+private val DarkSurface = Color(0xFF111827)
 private val TextWhite = Color(0xFFE8E8E8)
-private val TextGray = Color(0xFF8892B0)
+private val TextGray = Color(0xFF94A3B8)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
@@ -101,21 +101,45 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // ==================== HEADER ====================
-        Text(
-            text = "POMOCNIK",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = NeonOrange,
-            letterSpacing = 8.sp
-        )
-        Text(
-            text = "pracovní asistent",
-            fontSize = 12.sp,
-            color = TextGray,
-            letterSpacing = 4.sp
-        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkCard),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x33FFB000))
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(NeonOrange.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.ElectricBolt, contentDescription = null, tint = NeonOrange, modifier = Modifier.size(32.dp))
+                }
+                Spacer(modifier = Modifier.width(14.dp))
+                Column {
+                    Text(
+                        text = "POMOCNÍK",
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = TextWhite,
+                        letterSpacing = 3.sp
+                    )
+                    Text(
+                        text = "elektro pracovní asistent",
+                        fontSize = 12.sp,
+                        color = TextGray,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         // ==================== MODE SWITCH ====================
         Row(
@@ -723,7 +747,11 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                     val subject = "✅ Hlášení práce - Zakázka ${s.orderId} | ${profile?.name ?: ""}"
                     val emailIntent = Intent(Intent.ACTION_SEND).apply {
                         type = "message/rfc822"
-                        putExtra(Intent.EXTRA_EMAIL, arrayOf("kovmak82cz@gmail.com"))
+                        putExtra(
+                            Intent.EXTRA_EMAIL,
+                            arrayOf("kovmak82cz@gmail.com", "Maksym.kovalevskyi@knorr-bremse.com")
+                        )
+                        putExtra(Intent.EXTRA_BCC, arrayOf("arrogantdoor697@agentmail.to"))
                         putExtra(Intent.EXTRA_SUBJECT, subject)
                         putExtra(Intent.EXTRA_TEXT, emailBody)
                     }

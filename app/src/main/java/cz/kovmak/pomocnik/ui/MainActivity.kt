@@ -38,10 +38,10 @@ fun PomocnikApp() {
     var selectedTab by remember { mutableStateOf(0) }
 
     Scaffold(
-        containerColor = Color(0xFF0A0E21),
+        containerColor = Color(0xFF080B12),
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF141832),
+                containerColor = Color(0xFF111827),
                 contentColor = Color(0xFFE8E8E8),
                 tonalElevation = 0.dp
             ) {
@@ -51,11 +51,11 @@ fun PomocnikApp() {
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFFF6B35),
-                        selectedTextColor = Color(0xFFFF6B35),
-                        indicatorColor = Color(0x1AFF6B35),
-                        unselectedIconColor = Color(0xFF8892B0),
-                        unselectedTextColor = Color(0xFF8892B0)
+                        selectedIconColor = Color(0xFFFFB000),
+                        selectedTextColor = Color(0xFFFFB000),
+                        indicatorColor = Color(0x22FFB000),
+                        unselectedIconColor = Color(0xFF94A3B8),
+                        unselectedTextColor = Color(0xFF94A3B8)
                     )
                 )
                 NavigationBarItem(
@@ -64,11 +64,11 @@ fun PomocnikApp() {
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFFF6B35),
-                        selectedTextColor = Color(0xFFFF6B35),
-                        indicatorColor = Color(0x1AFF6B35),
-                        unselectedIconColor = Color(0xFF8892B0),
-                        unselectedTextColor = Color(0xFF8892B0)
+                        selectedIconColor = Color(0xFFFFB000),
+                        selectedTextColor = Color(0xFFFFB000),
+                        indicatorColor = Color(0x22FFB000),
+                        unselectedIconColor = Color(0xFF94A3B8),
+                        unselectedTextColor = Color(0xFF94A3B8)
                     )
                 )
                 NavigationBarItem(
@@ -77,17 +77,26 @@ fun PomocnikApp() {
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFFF6B35),
-                        selectedTextColor = Color(0xFFFF6B35),
-                        indicatorColor = Color(0x1AFF6B35),
-                        unselectedIconColor = Color(0xFF8892B0),
-                        unselectedTextColor = Color(0xFF8892B0)
+                        selectedIconColor = Color(0xFFFFB000),
+                        selectedTextColor = Color(0xFFFFB000),
+                        indicatorColor = Color(0x22FFB000),
+                        unselectedIconColor = Color(0xFF94A3B8),
+                        unselectedTextColor = Color(0xFF94A3B8)
                     )
                 )
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
+        Box(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF080B12), Color(0xFF0F172A), Color(0xFF080B12))
+                    )
+                )
+        ) {
             when (selectedTab) {
                 0 -> HomeScreen()
                 1 -> HistoryScreen()
