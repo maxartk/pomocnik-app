@@ -457,7 +457,7 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("🔧 SAP PM:", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                 if (entry.sapObjectPart.isNotEmpty()) {
-                    val objPart = SapData.objectParts.find { it.code == entry.sapObjectPart }
+                    val objPart = SapData.objectPartGroups.find { it.code == entry.sapObjectPart }
                     Text("  Část obj.: MGLC${entry.sapObjectPart}${objPart?.let { " - ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
                 }
                 if (entry.sapDamageDesc.isNotEmpty()) {

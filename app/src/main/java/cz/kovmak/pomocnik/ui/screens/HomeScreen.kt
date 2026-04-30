@@ -38,7 +38,6 @@ import cz.kovmak.pomocnik.data.sap.SapData
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
-import cz.kovmak.pomocnik.data.model.SapCatalogs
 
 // Modern color palette
 private val NeonOrange = Color(0xFFFF6B35)
@@ -282,14 +281,14 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                 
                 // --- Object Part dropdown ---
                 var objExpanded by remember { mutableStateOf(false) }
-                val selectedObjPart = SapData.objectParts.find { it.code == formState.sapObjectPart }
+                val selectedObjPart = SapData.objectPartGroups.find { it.code == formState.sapObjectPart }
                 
                 ExposedDropdownMenuBox(
                     expanded = objExpanded,
                     onExpandedChange = { objExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = if (selectedObjPart != null) SapData.objectPartLabel(selectedObjPart) else "",
+                        value = if (selectedObjPart != null) selectedObjPart.label else "",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Část objektu", color = TextGray) },
@@ -309,9 +308,9 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         onDismissRequest = { objExpanded = false },
                         modifier = Modifier.background(DarkCard)
                     ) {
-                        SapData.objectParts.forEach { part ->
+                        SapData.objectPartGroups.forEach { part ->
                             DropdownMenuItem(
-                                text = { Text(SapData.objectPartLabel(part), color = TextWhite, fontSize = 13.sp) },
+                                text = { Text(part.label, color = TextWhite, fontSize = 13.sp) },
                                 onClick = {
                                     viewModel.updateSapObjectPart(part.code)
                                     // Reset damage desc when object part changes
@@ -800,87 +799,25 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Část obj. (Object Part)
-                        Text("Část obj. (MGLC002)", color = TextGray, fontSize = 11.sp)
-                        DropdownSelector(
-                            selectedCode = formState.sapObjectPart,
-                            entries = SapCatalogs.objectParts,
-                            onSelected = { viewModel.updateSapObjectPart(it) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Popis škody (Damage Description)
-                        Text("Popis škody (MCZ001)", color = TextGray, fontSize = 11.sp)
-                        DropdownSelector(
-                            selectedCode = formState.sapDamageDesc,
-                            entries = SapCatalogs.damageDescriptions,
-                            onSelected = { viewModel.updateSapDamageDesc(it) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Text poškození
-                        OutlinedTextField(
-                            value = formState.sapDamageText,
-                            onValueChange = { viewModel.updateSapDamageText(it) },
-                            label = { Text("Text poškození", fontSize = 12.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = NeonOrange,
-                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                                focusedTextColor = TextWhite,
-                                unfocusedTextColor = TextWhite
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Příčina (Cause)
-                        Text("Příčina (MGL0003)", color = TextGray, fontSize = 11.sp)
-                        DropdownSelector(
-                            selectedCode = formState.sapCause,
-                            entries = SapCatalogs.causes,
-                            onSelected = { viewModel.updateSapCause(it) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Text příčiny
-                        OutlinedTextField(
-                            value = formState.sapCauseText,
-                            onValueChange = { viewModel.updateSapCauseText(it) },
-                            label = { Text("Text příčiny", fontSize = 12.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = NeonOrange,
-                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                                focusedTextColor = TextWhite,
-                                unfocusedTextColor = TextWhite
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // Dopad (Impact)
-                        Text("Dopad", color = TextGray, fontSize = 11.sp)
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            for (impact in SapCatalogs.impacts) {
-                                FilterChip(
-                                    selected = formState.sapImpact == impact.code,
-                                    onClick = { viewModel.updateSapImpact(impact.code) },
-                                    label = { Text("${impact.code}. ${impact.description}", fontSize = 11.sp) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = NeonBlue,
-                                        selectedLabelColor = Color.White,
-                                        containerColor = DarkSurface
-                                    )
-                                )
-                            }
+                        // Show current SAP values
+                        val s = formState
+                        if (s.sapObjectPart.isNotEmpty()) {
+                            val objPart = SapData.objectPartGroups.find { it.code == s.sapObjectPart }
+                            Text("Část obj.: MGLC${s.sapObjectPart}${objPart?.let { " – ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
                         }
+                        if (s.sapDamageDesc.isNotEmpty()) {
+                            val damageName = SapData.damageCodesFor(s.sapObjectPart).find { it.code == s.sapDamageDesc }?.name
+                            Text("Poškození: MCZ001 ${s.sapDamageDesc}${damageName?.let { " – $it" } ?: ""}", color = TextWhite, fontSize = 12.sp)
+                        }
+                        if (s.sapCauseCategory.isNotEmpty()) {
+                            val cat = SapData.causeGroups.find { it.code == s.sapCauseCategory }
+                            Text("Kategorie příčiny: MGLO${s.sapCauseCategory}${cat?.let { " – ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
+                        }
+                        if (s.sapCause.isNotEmpty()) {
+                            val causeName = SapData.causeCodesFor(s.sapCauseCategory).find { it.code == s.sapCause }?.name
+                            Text("Příčina: ${s.sapCause}${causeName?.let { " – $it" } ?: ""}", color = TextWhite, fontSize = 12.sp)
+                        }
+                        if (s.sapImpact.isNotEmpty()) Text("Dopad: ${s.sapImpact}", color = TextWhite, fontSize = 12.sp)
                     }
                 }
             }
@@ -998,7 +935,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         if (s.sapObjectPart.isNotEmpty() || s.sapDamageDesc.isNotEmpty()) {
                             append("\n🔧 SAP PM:\n")
                             if (s.sapObjectPart.isNotEmpty()) {
-                                val objPart = SapData.objectParts.find { it.code == s.sapObjectPart }
+                                val objPart = SapData.objectPartGroups.find { it.code == s.sapObjectPart }
                                 append("  Část obj.: MGLC${s.sapObjectPart}${objPart?.let { " - ${it.name}" } ?: ""}\n")
                             }
                             if (s.sapDamageDesc.isNotEmpty()) {
