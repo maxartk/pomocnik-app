@@ -12,8 +12,8 @@ android {
         applicationId = "cz.kovmak.pomocnik"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 38
+        versionName = "1.38"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

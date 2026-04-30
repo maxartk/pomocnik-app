@@ -1086,13 +1086,25 @@ private fun DropdownSelector(
             onDismissRequest = { expanded = false }
         ) {
             entries.forEach { entry ->
-                DropdownMenuItem(
-                    text = { Text("${entry.code}: ${entry.description}") },
-                    onClick = {
-                        onSelected(entry.code)
-                        expanded = false
-                    }
-                )
+                if (entry.code == "HEADER") {
+                    // Group header — not clickable
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(4.dp))
+                    androidx.compose.material3.Text(
+                        text = entry.description,
+                        color = NeonOrange,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                } else {
+                    DropdownMenuItem(
+                        text = { Text("${entry.code}: ${entry.description}") },
+                        onClick = {
+                            onSelected(entry.code)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }
