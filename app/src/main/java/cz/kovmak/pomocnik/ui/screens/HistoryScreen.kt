@@ -27,6 +27,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cz.kovmak.pomocnik.data.database.WorkEntry
 import cz.kovmak.pomocnik.viewmodel.HistoryViewModel
+import cz.kovmak.pomocnik.data.sap.SapData
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -455,10 +456,21 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
                 Divider(color = TextGray.copy(alpha = 0.2f))
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("🔧 SAP PM:", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                if (entry.sapObjectPart.isNotEmpty()) Text("  Část obj.: ${entry.sapObjectPart}", color = TextWhite, fontSize = 12.sp)
-                if (entry.sapDamageDesc.isNotEmpty()) Text("  Popis škody: ${entry.sapDamageDesc}", color = TextWhite, fontSize = 12.sp)
-                if (entry.sapDamageText.isNotEmpty()) Text("  Text: ${entry.sapDamageText}", color = TextWhite, fontSize = 12.sp)
-                if (entry.sapCause.isNotEmpty()) Text("  Příčina: ${entry.sapCause}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapObjectPart.isNotEmpty()) {
+                    val objPart = SapData.objectParts.find { it.code == entry.sapObjectPart }
+                    Text("  Část obj.: MGLC${entry.sapObjectPart}${objPart?.let { " - ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
+                }
+                if (entry.sapDamageDesc.isNotEmpty()) {
+                    val damageName = SapData.damageCodesFor(entry.sapObjectPart)
+                        .find { it.code == entry.sapDamageDesc }?.name ?: entry.sapDamageDesc
+                    Text("  Popis škody: MCZ001 ${entry.sapDamageDesc} - $damageName", color = TextWhite, fontSize = 12.sp)
+                }
+                if (entry.sapDamageText.isNotEmpty()) Text("  Text škody: ${entry.sapDamageText}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapCause.isNotEmpty()) {
+                    val causeName = SapData.causeCodes
+                        .find { it.code == entry.sapCause }?.name ?: entry.sapCause
+                    Text("  Příčina: MGL0003 ${entry.sapCause} - $causeName", color = TextWhite, fontSize = 12.sp)
+                }
                 if (entry.sapCauseText.isNotEmpty()) Text("  Text příčiny: ${entry.sapCauseText}", color = TextWhite, fontSize = 12.sp)
                 if (entry.sapImpact.isNotEmpty()) Text("  Dopad: ${entry.sapImpact}", color = TextWhite, fontSize = 12.sp)
             }
