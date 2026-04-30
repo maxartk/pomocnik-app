@@ -398,20 +398,20 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                 
                 Spacer(modifier = Modifier.height(10.dp))
                 
-                // --- Cause dropdown ---
-                var causeExpanded by remember { mutableStateOf(false) }
-                val selectedCause = SapData.causeCodes.find { it.code == formState.sapCause }
+                // --- Cause Category dropdown ---
+                var causeCatExpanded by remember { mutableStateOf(false) }
+                val selectedCauseCat = SapData.causeGroups.find { it.code == formState.sapCauseCategory }
                 
                 ExposedDropdownMenuBox(
-                    expanded = causeExpanded,
-                    onExpandedChange = { causeExpanded = it }
+                    expanded = causeCatExpanded,
+                    onExpandedChange = { causeCatExpanded = it }
                 ) {
                     OutlinedTextField(
-                        value = if (selectedCause != null) SapData.itemLabel(selectedCause.code, selectedCause.name) else "",
+                        value = if (selectedCauseCat != null) selectedCauseCat.label else "",
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Příčina (MGL0003)", color = TextGray) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = causeExpanded) },
+                        label = { Text("Kategorie příčiny (MGLO)", color = TextGray) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = causeCatExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = NeonOrange,
@@ -423,19 +423,65 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         )
                     )
                     ExposedDropdownMenu(
-                        expanded = causeExpanded,
-                        onDismissRequest = { causeExpanded = false },
+                        expanded = causeCatExpanded,
+                        onDismissRequest = { causeCatExpanded = false },
                         modifier = Modifier.background(DarkCard)
                     ) {
-                        SapData.causeCodes.forEach { item ->
+                        SapData.causeGroups.forEach { group ->
                             DropdownMenuItem(
-                                text = { Text(SapData.itemLabel(item.code, item.name), color = TextWhite, fontSize = 13.sp) },
+                                text = { Text(group.label, color = TextWhite, fontSize = 13.sp) },
                                 onClick = {
-                                    viewModel.updateSapCause(item.code)
-                                    causeExpanded = false
+                                    viewModel.updateSapCauseCategory(group.code)
+                                    causeCatExpanded = false
                                 },
                                 contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
                             )
+                        }
+                    }
+                }
+                
+                // --- Cause Code dropdown (depends on category) ---
+                val causeOptions = SapData.causeCodesFor(formState.sapCauseCategory)
+                if (causeOptions.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    var causeExpanded by remember { mutableStateOf(false) }
+                    val selectedCause = causeOptions.find { it.code == formState.sapCause }
+                    
+                    ExposedDropdownMenuBox(
+                        expanded = causeExpanded,
+                        onExpandedChange = { causeExpanded = it }
+                    ) {
+                        OutlinedTextField(
+                            value = if (selectedCause != null) SapData.itemLabel(selectedCause.code, selectedCause.name) else "",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Kód příčiny", color = TextGray) },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = causeExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonOrange,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                focusedLabelColor = NeonOrange,
+                                unfocusedLabelColor = TextGray
+                            )
+                        )
+                        ExposedDropdownMenu(
+                            expanded = causeExpanded,
+                            onDismissRequest = { causeExpanded = false },
+                            modifier = Modifier.background(DarkCard)
+                        ) {
+                            causeOptions.forEach { item ->
+                                DropdownMenuItem(
+                                    text = { Text(SapData.itemLabel(item.code, item.name), color = TextWhite, fontSize = 13.sp) },
+                                    onClick = {
+                                        viewModel.updateSapCause(item.code)
+                                        causeExpanded = false
+                                    },
+                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                )
+                            }
                         }
                     }
                 }
@@ -961,10 +1007,14 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                                 append("  Popis škody: MCZ001 ${s.sapDamageDesc} - $damageName\n")
                             }
                             if (s.sapDamageText.isNotEmpty()) append("  Text škody: ${s.sapDamageText}\n")
+                            if (s.sapCauseCategory.isNotEmpty()) {
+                                val causeGroup = SapData.causeGroups.find { it.code == s.sapCauseCategory }
+                                append("  Kategorie příčiny: MGLO${s.sapCauseCategory}${causeGroup?.let { " – ${it.name}" } ?: ""}\n")
+                            }
                             if (s.sapCause.isNotEmpty()) {
-                                val causeName = SapData.causeCodes
+                                val causeName = SapData.causeCodesFor(s.sapCauseCategory)
                                     .find { it.code == s.sapCause }?.name ?: s.sapCause
-                                append("  Příčina: MGL0003 ${s.sapCause} - $causeName\n")
+                                append("  Kód příčiny: ${s.sapCause} – $causeName\n")
                             }
                             if (s.sapCauseText.isNotEmpty()) append("  Text příčiny: ${s.sapCauseText}\n")
                             if (s.sapImpact.isNotEmpty()) append("  Dopad: ${s.sapImpact}\n")

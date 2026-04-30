@@ -466,10 +466,14 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
                     Text("  Popis škody: MCZ001 ${entry.sapDamageDesc} - $damageName", color = TextWhite, fontSize = 12.sp)
                 }
                 if (entry.sapDamageText.isNotEmpty()) Text("  Text škody: ${entry.sapDamageText}", color = TextWhite, fontSize = 12.sp)
+                if (entry.sapCauseCategory.isNotEmpty()) {
+                    val causeGroup = SapData.causeGroups.find { it.code == entry.sapCauseCategory }
+                    Text("  Kategorie příčiny: MGLO${entry.sapCauseCategory}${causeGroup?.let { " – ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
+                }
                 if (entry.sapCause.isNotEmpty()) {
-                    val causeName = SapData.causeCodes
+                    val causeName = SapData.causeCodesFor(entry.sapCauseCategory)
                         .find { it.code == entry.sapCause }?.name ?: entry.sapCause
-                    Text("  Příčina: MGL0003 ${entry.sapCause} - $causeName", color = TextWhite, fontSize = 12.sp)
+                    Text("  Kód příčiny: ${entry.sapCause} – $causeName", color = TextWhite, fontSize = 12.sp)
                 }
                 if (entry.sapCauseText.isNotEmpty()) Text("  Text příčiny: ${entry.sapCauseText}", color = TextWhite, fontSize = 12.sp)
                 if (entry.sapImpact.isNotEmpty()) Text("  Dopad: ${entry.sapImpact}", color = TextWhite, fontSize = 12.sp)

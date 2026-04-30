@@ -69,7 +69,7 @@ data class WorkEntry(
 
     @ColumnInfo(name = "sap_cause_category")
     val sapCauseCategory: String = "",
-    
+
     @ColumnInfo(name = "sap_cause")
     val sapCause: String = "",
     
