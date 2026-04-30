@@ -34,10 +34,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import cz.kovmak.pomocnik.viewmodel.WorkViewModel
 import cz.kovmak.pomocnik.ui.components.VoiceInputButton
-import cz.kovmak.pomocnik.data.sap.SapData
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
+import cz.kovmak.pomocnik.data.model.SapCatalogs
 
 // Modern color palette
 private val NeonOrange = Color(0xFFFF6B35)
@@ -262,290 +262,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             contentDescription = "Галерея",
                             tint = if (formState.photoUri != null) NeonOrange else TextGray
                         )
-                    }
-                }
-            }
-        }
-
-        // ==================== SAP PM FIELDS ====================
-        Spacer(modifier = Modifier.height(20.dp))
-        
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkCard)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("🔧 SAP PM", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // --- Object Part dropdown ---
-                var objExpanded by remember { mutableStateOf(false) }
-                val selectedObjPart = SapData.objectPartGroups.find { it.code == formState.sapObjectPart }
-                
-                ExposedDropdownMenuBox(
-                    expanded = objExpanded,
-                    onExpandedChange = { objExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = if (selectedObjPart != null) selectedObjPart.label else "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Část objektu", color = TextGray) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = objExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonOrange,
-                            unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            focusedLabelColor = NeonOrange,
-                            unfocusedLabelColor = TextGray
-                        )
-                    )
-                    ExposedDropdownMenu(
-                        expanded = objExpanded,
-                        onDismissRequest = { objExpanded = false },
-                        modifier = Modifier.background(DarkCard)
-                    ) {
-                        SapData.objectPartGroups.forEach { part ->
-                            DropdownMenuItem(
-                                text = { Text(part.label, color = TextWhite, fontSize = 13.sp) },
-                                onClick = {
-                                    viewModel.updateSapObjectPart(part.code)
-                                    // Reset damage desc when object part changes
-                                    viewModel.updateSapDamageDesc("")
-                                    objExpanded = false
-                                },
-                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                            )
-                        }
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(10.dp))
-                
-                // --- Damage Description dropdown (depends on object part) ---
-                val damageOptions = SapData.damageCodesFor(formState.sapObjectPart)
-                var damageExpanded by remember { mutableStateOf(false) }
-                val selectedDamage = damageOptions.find { it.code == formState.sapDamageDesc }
-                
-                ExposedDropdownMenuBox(
-                    expanded = damageExpanded,
-                    onExpandedChange = {
-                        if (damageOptions.isNotEmpty()) damageExpanded = it
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = if (selectedDamage != null) SapData.itemLabel(selectedDamage.code, selectedDamage.name) else "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Popis škody (MCZ001)", color = TextGray) },
-                        enabled = damageOptions.isNotEmpty(),
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = damageExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonOrange,
-                            unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            disabledTextColor = TextGray,
-                            focusedLabelColor = NeonOrange,
-                            unfocusedLabelColor = TextGray
-                        )
-                    )
-                    if (damageOptions.isNotEmpty()) {
-                        ExposedDropdownMenu(
-                            expanded = damageExpanded,
-                            onDismissRequest = { damageExpanded = false },
-                            modifier = Modifier.background(DarkCard)
-                        ) {
-                            damageOptions.forEach { item ->
-                                DropdownMenuItem(
-                                    text = { Text(SapData.itemLabel(item.code, item.name), color = TextWhite, fontSize = 13.sp) },
-                                    onClick = {
-                                        viewModel.updateSapDamageDesc(item.code)
-                                        damageExpanded = false
-                                    },
-                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                // --- Damage free text ---
-                if (formState.sapDamageDesc.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = formState.sapDamageText,
-                        onValueChange = viewModel::updateSapDamageText,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Text škody", color = TextGray) },
-                        placeholder = { Text("Doplňující popis...", color = TextGray.copy(alpha = 0.3f)) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonOrange,
-                            unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            focusedLabelColor = NeonOrange,
-                            unfocusedLabelColor = TextGray,
-                            cursorColor = NeonOrange
-                        )
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(10.dp))
-                
-                // --- Cause Category dropdown ---
-                var causeCatExpanded by remember { mutableStateOf(false) }
-                val selectedCauseCat = SapData.causeGroups.find { it.code == formState.sapCauseCategory }
-                
-                ExposedDropdownMenuBox(
-                    expanded = causeCatExpanded,
-                    onExpandedChange = { causeCatExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = if (selectedCauseCat != null) selectedCauseCat.label else "",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Kategorie příčiny (MGLO)", color = TextGray) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = causeCatExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonOrange,
-                            unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            focusedLabelColor = NeonOrange,
-                            unfocusedLabelColor = TextGray
-                        )
-                    )
-                    ExposedDropdownMenu(
-                        expanded = causeCatExpanded,
-                        onDismissRequest = { causeCatExpanded = false },
-                        modifier = Modifier.background(DarkCard)
-                    ) {
-                        SapData.causeGroups.forEach { group ->
-                            DropdownMenuItem(
-                                text = { Text(group.label, color = TextWhite, fontSize = 13.sp) },
-                                onClick = {
-                                    viewModel.updateSapCauseCategory(group.code)
-                                    causeCatExpanded = false
-                                },
-                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                            )
-                        }
-                    }
-                }
-                
-                // --- Cause Code dropdown (depends on category) ---
-                val causeOptions = SapData.causeCodesFor(formState.sapCauseCategory)
-                if (causeOptions.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    var causeExpanded by remember { mutableStateOf(false) }
-                    val selectedCause = causeOptions.find { it.code == formState.sapCause }
-                    
-                    ExposedDropdownMenuBox(
-                        expanded = causeExpanded,
-                        onExpandedChange = { causeExpanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = if (selectedCause != null) SapData.itemLabel(selectedCause.code, selectedCause.name) else "",
-                            onValueChange = {},
-                            readOnly = true,
-                            label = { Text("Kód příčiny", color = TextGray) },
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = causeExpanded) },
-                            modifier = Modifier.fillMaxWidth().menuAnchor(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = NeonOrange,
-                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                                focusedTextColor = TextWhite,
-                                unfocusedTextColor = TextWhite,
-                                focusedLabelColor = NeonOrange,
-                                unfocusedLabelColor = TextGray
-                            )
-                        )
-                        ExposedDropdownMenu(
-                            expanded = causeExpanded,
-                            onDismissRequest = { causeExpanded = false },
-                            modifier = Modifier.background(DarkCard)
-                        ) {
-                            causeOptions.forEach { item ->
-                                DropdownMenuItem(
-                                    text = { Text(SapData.itemLabel(item.code, item.name), color = TextWhite, fontSize = 13.sp) },
-                                    onClick = {
-                                        viewModel.updateSapCause(item.code)
-                                        causeExpanded = false
-                                    },
-                                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                // --- Cause free text ---
-                if (formState.sapCause.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = formState.sapCauseText,
-                        onValueChange = viewModel::updateSapCauseText,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Text příčiny", color = TextGray) },
-                        placeholder = { Text("Doplňující popis příčiny...", color = TextGray.copy(alpha = 0.3f)) },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonOrange,
-                            unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            focusedLabelColor = NeonOrange,
-                            unfocusedLabelColor = TextGray,
-                            cursorColor = NeonOrange
-                        )
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(10.dp))
-                
-                // --- Impact dropdown ---
-                var impactExpanded by remember { mutableStateOf(false) }
-                
-                ExposedDropdownMenuBox(
-                    expanded = impactExpanded,
-                    onExpandedChange = { impactExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = formState.sapImpact,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Dopad", color = TextGray) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = impactExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = NeonOrange,
-                            unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                            focusedTextColor = TextWhite,
-                            unfocusedTextColor = TextWhite,
-                            focusedLabelColor = NeonOrange,
-                            unfocusedLabelColor = TextGray
-                        )
-                    )
-                    ExposedDropdownMenu(
-                        expanded = impactExpanded,
-                        onDismissRequest = { impactExpanded = false },
-                        modifier = Modifier.background(DarkCard)
-                    ) {
-                        SapData.impactOptions.forEach { impact ->
-                            DropdownMenuItem(
-                                text = { Text(impact, color = TextWhite, fontSize = 13.sp) },
-                                onClick = {
-                                    viewModel.updateSapImpact(impact)
-                                    impactExpanded = false
-                                },
-                                contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
-                            )
-                        }
                     }
                 }
             }
@@ -799,25 +515,87 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
 
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Show current SAP values
-                        val s = formState
-                        if (s.sapObjectPart.isNotEmpty()) {
-                            val objPart = SapData.objectPartGroups.find { it.code == s.sapObjectPart }
-                            Text("Část obj.: MGLC${s.sapObjectPart}${objPart?.let { " – ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
+                        // Část obj. (Object Part)
+                        Text("Část obj. (MGLC001-005)", color = TextGray, fontSize = 11.sp)
+                        DropdownSelector(
+                            selectedCode = formState.sapObjectPart,
+                            entries = SapCatalogs.objectParts,
+                            onSelected = { viewModel.updateSapObjectPart(it) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Popis škody (Damage Description)
+                        Text("Popis škody (MCZ001)", color = TextGray, fontSize = 11.sp)
+                        DropdownSelector(
+                            selectedCode = formState.sapDamageDesc,
+                            entries = SapCatalogs.damageDescriptions,
+                            onSelected = { viewModel.updateSapDamageDesc(it) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Text poškození
+                        OutlinedTextField(
+                            value = formState.sapDamageText,
+                            onValueChange = { viewModel.updateSapDamageText(it) },
+                            label = { Text("Text poškození", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonOrange,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Příčina (Cause)
+                        Text("Příčina (MGLO001-007)", color = TextGray, fontSize = 11.sp)
+                        DropdownSelector(
+                            selectedCode = formState.sapCause,
+                            entries = SapCatalogs.causes,
+                            onSelected = { viewModel.updateSapCause(it) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Text příčiny
+                        OutlinedTextField(
+                            value = formState.sapCauseText,
+                            onValueChange = { viewModel.updateSapCauseText(it) },
+                            label = { Text("Text příčiny", fontSize = 12.sp) },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonOrange,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Dopad (Impact)
+                        Text("Dopad", color = TextGray, fontSize = 11.sp)
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (impact in SapCatalogs.impacts) {
+                                FilterChip(
+                                    selected = formState.sapImpact == impact.code,
+                                    onClick = { viewModel.updateSapImpact(impact.code) },
+                                    label = { Text("${impact.code}. ${impact.description}", fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = NeonBlue,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = DarkSurface
+                                    )
+                                )
+                            }
                         }
-                        if (s.sapDamageDesc.isNotEmpty()) {
-                            val damageName = SapData.damageCodesFor(s.sapObjectPart).find { it.code == s.sapDamageDesc }?.name
-                            Text("Poškození: MCZ001 ${s.sapDamageDesc}${damageName?.let { " – $it" } ?: ""}", color = TextWhite, fontSize = 12.sp)
-                        }
-                        if (s.sapCauseCategory.isNotEmpty()) {
-                            val cat = SapData.causeGroups.find { it.code == s.sapCauseCategory }
-                            Text("Kategorie příčiny: MGLO${s.sapCauseCategory}${cat?.let { " – ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
-                        }
-                        if (s.sapCause.isNotEmpty()) {
-                            val causeName = SapData.causeCodesFor(s.sapCauseCategory).find { it.code == s.sapCause }?.name
-                            Text("Příčina: ${s.sapCause}${causeName?.let { " – $it" } ?: ""}", color = TextWhite, fontSize = 12.sp)
-                        }
-                        if (s.sapImpact.isNotEmpty()) Text("Dopad: ${s.sapImpact}", color = TextWhite, fontSize = 12.sp)
                     }
                 }
             }
@@ -934,25 +712,10 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         // SAP fields
                         if (s.sapObjectPart.isNotEmpty() || s.sapDamageDesc.isNotEmpty()) {
                             append("\n🔧 SAP PM:\n")
-                            if (s.sapObjectPart.isNotEmpty()) {
-                                val objPart = SapData.objectPartGroups.find { it.code == s.sapObjectPart }
-                                append("  Část obj.: MGLC${s.sapObjectPart}${objPart?.let { " - ${it.name}" } ?: ""}\n")
-                            }
-                            if (s.sapDamageDesc.isNotEmpty()) {
-                                val damageName = SapData.damageCodesFor(s.sapObjectPart)
-                                    .find { it.code == s.sapDamageDesc }?.name ?: s.sapDamageDesc
-                                append("  Popis škody: MCZ001 ${s.sapDamageDesc} - $damageName\n")
-                            }
-                            if (s.sapDamageText.isNotEmpty()) append("  Text škody: ${s.sapDamageText}\n")
-                            if (s.sapCauseCategory.isNotEmpty()) {
-                                val causeGroup = SapData.causeGroups.find { it.code == s.sapCauseCategory }
-                                append("  Kategorie příčiny: MGLO${s.sapCauseCategory}${causeGroup?.let { " – ${it.name}" } ?: ""}\n")
-                            }
-                            if (s.sapCause.isNotEmpty()) {
-                                val causeName = SapData.causeCodesFor(s.sapCauseCategory)
-                                    .find { it.code == s.sapCause }?.name ?: s.sapCause
-                                append("  Kód příčiny: ${s.sapCause} – $causeName\n")
-                            }
+                            if (s.sapObjectPart.isNotEmpty()) append("  Část obj.: MGLC ${s.sapObjectPart}\n")
+                            if (s.sapDamageDesc.isNotEmpty()) append("  Popis škody: MCZ001 ${s.sapDamageDesc}\n")
+                            if (s.sapDamageText.isNotEmpty()) append("  Text: ${s.sapDamageText}\n")
+                            if (s.sapCause.isNotEmpty()) append("  Příčina: MGLO ${s.sapCause}\n")
                             if (s.sapCauseText.isNotEmpty()) append("  Text příčiny: ${s.sapCauseText}\n")
                             if (s.sapImpact.isNotEmpty()) append("  Dopad: ${s.sapImpact}\n")
                         }
@@ -1086,25 +849,13 @@ private fun DropdownSelector(
             onDismissRequest = { expanded = false }
         ) {
             entries.forEach { entry ->
-                if (entry.code == "HEADER") {
-                    // Group header — not clickable
-                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(4.dp))
-                    androidx.compose.material3.Text(
-                        text = entry.description,
-                        color = NeonOrange,
-                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                    )
-                } else {
-                    DropdownMenuItem(
-                        text = { Text("${entry.code}: ${entry.description}") },
-                        onClick = {
-                            onSelected(entry.code)
-                            expanded = false
-                        }
-                    )
-                }
+                DropdownMenuItem(
+                    text = { Text("${entry.code}: ${entry.description}") },
+                    onClick = {
+                        onSelected(entry.code)
+                        expanded = false
+                    }
+                )
             }
         }
     }

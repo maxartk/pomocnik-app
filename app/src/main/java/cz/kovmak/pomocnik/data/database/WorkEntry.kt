@@ -56,29 +56,26 @@ data class WorkEntry(
     val sapObjectPart: String = "",
     
     @ColumnInfo(name = "sap_object_part_catalog")
-    val sapObjectPartCatalog: String = "",
-
+    val sapObjectPartCatalog: String = "MGLC",
+    
     @ColumnInfo(name = "sap_damage_desc")
     val sapDamageDesc: String = "",
     
     @ColumnInfo(name = "sap_damage_desc_catalog")
     val sapDamageDescCatalog: String = "MCZ001",
-
+    
     @ColumnInfo(name = "sap_damage_text")
     val sapDamageText: String = "",
-
-    @ColumnInfo(name = "sap_cause_category")
-    val sapCauseCategory: String = "",
-
+    
     @ColumnInfo(name = "sap_cause")
     val sapCause: String = "",
     
     @ColumnInfo(name = "sap_cause_catalog")
-    val sapCauseCatalog: String = "",
-
+    val sapCauseCatalog: String = "MGLO",
+    
     @ColumnInfo(name = "sap_cause_text")
     val sapCauseText: String = "",
-
+    
     @ColumnInfo(name = "sap_impact")
     val sapImpact: String = ""
 )

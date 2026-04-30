@@ -211,15 +211,15 @@ Dostupné katalogy:
 $catalogsText
 
 Pravidla:
-- Část obj.: vyber nejvhodnější kód z MGLC002 podle popisu (jen číslo, např. "2208")
+- Část obj.: vyber nejvhodnější kód z MGLC001-005 podle popisu (jen číslo, např. "2208" nebo "2302")
 - Popis škody: vyber kód z MCZ001 který nejlépe odpovídá (jen číslo, např. "1023")
 - Text poškození: stručný popis v češtině (1 věta, formální styl)
-- Příčina: vyber kód z MGL0003 (jen číslo, např. "1003")
+- Příčina: vyber nejvhodnější kód z MGLO001-007 podle popisu (jen číslo, např. "1305" nebo "1226")
 - Text příčiny: stručná příčina v češtině
 - Dopad: 1=Bez vlivu, 2=Omezení výroby, 3=Výpadek výroby
 
 Vrať POUZE tento JSON, nic jiného:
-{"objectPart":"2208","damageDesc":"1023","damageText":"Nelze posunout do home pozice","cause":"1003","causeText":"DCS zóna","impact":"3"}"""
+{"objectPart":"2208","damageDesc":"1023","damageText":"Nelze posunout do home pozice","cause":"1305","causeText":"Zkrat nebo elektrická porucha","impact":"3"}"""
 
         val request = TranslationRequest(
             model = model,

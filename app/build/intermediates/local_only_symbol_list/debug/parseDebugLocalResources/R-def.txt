@@ -1,8 +1,0 @@
-R_DEF: Internal format may change without notice
-local
-color accent
-color primary
-color primary_dark
-string app_name
-style Theme.Pomocnik
-xml file_paths

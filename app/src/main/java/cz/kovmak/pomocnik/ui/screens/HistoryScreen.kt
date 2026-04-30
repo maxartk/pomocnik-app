@@ -27,7 +27,6 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cz.kovmak.pomocnik.data.database.WorkEntry
 import cz.kovmak.pomocnik.viewmodel.HistoryViewModel
-import cz.kovmak.pomocnik.data.sap.SapData
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -311,7 +310,7 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 if (entry.sapObjectPart.isNotEmpty()) {
-                                    Text("Část obj.: MGLC002 ${entry.sapObjectPart}", color = TextWhite, fontSize = 13.sp)
+                                    Text("Část obj.: MGLC ${entry.sapObjectPart}", color = TextWhite, fontSize = 13.sp)
                                 }
                                 if (entry.sapDamageDesc.isNotEmpty()) {
                                     Text("Popis škody: MCZ001 ${entry.sapDamageDesc}", color = TextWhite, fontSize = 13.sp)
@@ -320,7 +319,7 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
                                     Text("Text: ${entry.sapDamageText}", color = TextWhite, fontSize = 13.sp)
                                 }
                                 if (entry.sapCause.isNotEmpty()) {
-                                    Text("Příčina: MGL0003 ${entry.sapCause}", color = TextWhite, fontSize = 13.sp)
+                                    Text("Příčina: MGLO ${entry.sapCause}", color = TextWhite, fontSize = 13.sp)
                                 }
                                 if (entry.sapCauseText.isNotEmpty()) {
                                     Text("Text příčiny: ${entry.sapCauseText}", color = TextWhite, fontSize = 13.sp)
@@ -450,35 +449,6 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
                 )
             }
 
-            // SAP fields
-            if (entry.sapObjectPart.isNotEmpty() || entry.sapDamageDesc.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Divider(color = TextGray.copy(alpha = 0.2f))
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("🔧 SAP PM:", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                if (entry.sapObjectPart.isNotEmpty()) {
-                    val objPart = SapData.objectPartGroups.find { it.code == entry.sapObjectPart }
-                    Text("  Část obj.: MGLC${entry.sapObjectPart}${objPart?.let { " - ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
-                }
-                if (entry.sapDamageDesc.isNotEmpty()) {
-                    val damageName = SapData.damageCodesFor(entry.sapObjectPart)
-                        .find { it.code == entry.sapDamageDesc }?.name ?: entry.sapDamageDesc
-                    Text("  Popis škody: MCZ001 ${entry.sapDamageDesc} - $damageName", color = TextWhite, fontSize = 12.sp)
-                }
-                if (entry.sapDamageText.isNotEmpty()) Text("  Text škody: ${entry.sapDamageText}", color = TextWhite, fontSize = 12.sp)
-                if (entry.sapCauseCategory.isNotEmpty()) {
-                    val causeGroup = SapData.causeGroups.find { it.code == entry.sapCauseCategory }
-                    Text("  Kategorie příčiny: MGLO${entry.sapCauseCategory}${causeGroup?.let { " – ${it.name}" } ?: ""}", color = TextWhite, fontSize = 12.sp)
-                }
-                if (entry.sapCause.isNotEmpty()) {
-                    val causeName = SapData.causeCodesFor(entry.sapCauseCategory)
-                        .find { it.code == entry.sapCause }?.name ?: entry.sapCause
-                    Text("  Kód příčiny: ${entry.sapCause} – $causeName", color = TextWhite, fontSize = 12.sp)
-                }
-                if (entry.sapCauseText.isNotEmpty()) Text("  Text příčiny: ${entry.sapCauseText}", color = TextWhite, fontSize = 12.sp)
-                if (entry.sapImpact.isNotEmpty()) Text("  Dopad: ${entry.sapImpact}", color = TextWhite, fontSize = 12.sp)
-            }
-
             // Meta row
             Row(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -513,10 +483,10 @@ private fun shareEntry(context: android.content.Context, entry: WorkEntry) {
     } else ""
     val sapSection = if (entry.sapObjectPart.isNotEmpty() || entry.sapDamageDesc.isNotEmpty()) {
         val sb = StringBuilder("\n\n🔧 SAP PM:")
-        if (entry.sapObjectPart.isNotEmpty()) sb.append("\nČást obj.: MGLC002 ${entry.sapObjectPart}")
+        if (entry.sapObjectPart.isNotEmpty()) sb.append("\nČást obj.: MGLC ${entry.sapObjectPart}")
         if (entry.sapDamageDesc.isNotEmpty()) sb.append("\nPopis škody: MCZ001 ${entry.sapDamageDesc}")
         if (entry.sapDamageText.isNotEmpty()) sb.append("\nText: ${entry.sapDamageText}")
-        if (entry.sapCause.isNotEmpty()) sb.append("\nPříčina: MGL0003 ${entry.sapCause}")
+        if (entry.sapCause.isNotEmpty()) sb.append("\nPříčina: MGLO ${entry.sapCause}")
         if (entry.sapCauseText.isNotEmpty()) sb.append("\nText příčiny: ${entry.sapCauseText}")
         if (entry.sapImpact.isNotEmpty()) sb.append("\nDopad: ${entry.sapImpact}")
         sb.toString()
