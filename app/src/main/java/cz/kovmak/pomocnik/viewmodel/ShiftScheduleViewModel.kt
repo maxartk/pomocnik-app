@@ -141,16 +141,20 @@ class ShiftScheduleViewModel(application: Application) : AndroidViewModel(applic
                 val imageBase64 = withContext(Dispatchers.IO) { uriToBase64(photoUri) }
                     ?: throw IllegalStateException("Не вдалося прочитати фото")
                 val imported = recognizeSchedule(imageBase64, apiKey)
-                if (imported.isEmpty()) {
+                val validationError = validateImportedSchedule(imported)
+                if (validationError != null) {
                     _state.update {
                         it.copy(
                             isImporting = false,
-                            error = "AI не знайшов змін. Спробуй обрізати фото ближче до твого рядка Kovalevskyi."
+                            error = validationError
                         )
                     }
                     return@launch
                 }
-                val updated = _state.value.shifts.toMutableMap()
+                val monthPrefix = _state.value.selectedMonth.toString()
+                val updated = _state.value.shifts
+                    .filterKeys { !it.startsWith(monthPrefix) }
+                    .toMutableMap()
                 imported.forEach { entry -> updated[entry.date.toString()] = entry.type }
                 saveShifts(updated)
                 _state.update {
@@ -190,11 +194,14 @@ Return ONLY valid JSON object:
 {"month":"${month}","shifts":[{"date":"YYYY-MM-DD","code":"8-R"}]}
 
 Rules:
+- Read ONLY the single target row for Kovalevskyi/Kovmak/Maksym. Ignore all other workers and summary rows.
+- If you cannot confidently identify the target row and the date columns, return {"month":"${month}","shifts":[]}.
 - If a day is empty, vacation, N, NVN, B, P, D, or unclear, omit it.
 - Use only the four valid codes above.
-- If the sheet uses colors or abbreviations, infer only when the time/code is clearly visible.
+- If the sheet uses colors or abbreviations, infer only when the time/code is clearly visible in the target row.
 - If you see a shift time instead of a code, map it to the matching valid code.
 - Do not invent dates. If uncertain, omit that day.
+- Do NOT fill every day with the same shift just because many cells are green. A full month of 8-R is probably an error.
 - The screenshot may show Czech month sheet names. Respect the selected month ${month}.
 """.trimIndent()
 
@@ -216,7 +223,25 @@ Rules:
         parseShiftJson(raw)
     }
 
+    private fun validateImportedSchedule(imported: List<ShiftEntry>): String? {
+        if (imported.isEmpty()) {
+            return "AI не знайшов змін. Спробуй обрізати фото ближче до твого рядка Kovalevskyi."
+        }
+        val month = _state.value.selectedMonth
+        val monthEntries = imported.filter { YearMonth.from(it.date) == month }
+        if (monthEntries.isEmpty()) {
+            return "AI не знайшов змін саме для ${month.monthValue}/${month.year}. Перевір вибраний місяць у календарі."
+        }
+        val dominantTypeCount = monthEntries.groupingBy { it.type }.eachCount().values.maxOrNull() ?: 0
+        val suspiciousFullSameMonth = monthEntries.size >= (month.lengthOfMonth() - 2) && dominantTypeCount == monthEntries.size
+        if (suspiciousFullSameMonth) {
+            return "AI прочитав графік неправильно: майже весь місяць однакова зміна (${monthEntries.first().type.code}). Очисти місяць і сфотографуй/обріж тільки рядок Kovalevskyi."
+        }
+        return null
+    }
+
     private fun parseShiftJson(raw: String): List<ShiftEntry> {
+        val month = _state.value.selectedMonth
         val cleaned = raw
             .replace(Regex("^```json\\s*", RegexOption.IGNORE_CASE), "")
             .replace(Regex("^```\\s*", RegexOption.IGNORE_CASE), "")
@@ -240,8 +265,8 @@ Rules:
             val date = runCatching { LocalDate.parse(obj.get("date")?.asString ?: return@mapNotNull null) }.getOrNull()
             val type = ShiftType.fromCode(obj.get("code")?.asString)
                 ?: shiftTypeFromLooseText(obj.toString())
-            if (date != null && type != null) ShiftEntry(date, type) else null
-        }
+            if (date != null && YearMonth.from(date) == month && type != null) ShiftEntry(date, type) else null
+        }.distinctBy { it.date }
     }
 
     private fun shiftTypeFromLooseText(raw: String): ShiftType? {
