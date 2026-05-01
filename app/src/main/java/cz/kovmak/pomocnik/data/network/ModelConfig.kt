@@ -13,6 +13,7 @@ data class ModelOption(
 
 object ModelConfig {
     val DEFAULT_MODEL = "google/gemini-2.5-flash"
+    val SCHEDULE_OCR_MODEL = "google/gemini-2.5-flash"
 
     val models = listOf(
         // Budget

@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import cz.kovmak.pomocnik.data.network.ContentPart
 import cz.kovmak.pomocnik.data.network.ImageUrl
 import cz.kovmak.pomocnik.data.network.Message
@@ -168,12 +169,15 @@ class ShiftScheduleViewModel(application: Application) : AndroidViewModel(applic
 
     private suspend fun recognizeSchedule(imageBase64: String, apiKey: String): List<ShiftEntry> = withContext(Dispatchers.IO) {
         val month = _state.value.selectedMonth
-        val model = userProfile.value?.selectedModel ?: ModelConfig.DEFAULT_MODEL
+        // Always use a known vision-capable model here. The user's text model can be
+        // non-vision or weaker OCR, which made the button look broken.
+        val model = ModelConfig.SCHEDULE_OCR_MODEL
         val api = OpenRouterApi.create(apiKey)
         val systemPrompt = "You are an OCR assistant for Czech factory monthly shift rota screenshots. Return strict JSON only."
         val prompt = """
-Analyze the photo of an Excel/SharePoint shift schedule.
-Find the row for worker name "Kovalevskyi" or "Kovalevsky".
+Analyze the photo of an Excel/SharePoint shift schedule from a factory.
+Find the row for worker name "Kovalevskyi", "Kovalevsky", "Kovalevskij", "Kovmak", "Maksym" or "Maxim".
+If the photo is already cropped to one worker row, treat that visible row as the target row.
 Extract shifts for month ${month.monthValue}/${month.year} only.
 
 Valid shift codes and meanings:
@@ -188,6 +192,8 @@ Return ONLY valid JSON object:
 Rules:
 - If a day is empty, vacation, N, NVN, B, P, D, or unclear, omit it.
 - Use only the four valid codes above.
+- If the sheet uses colors or abbreviations, infer only when the time/code is clearly visible.
+- If you see a shift time instead of a code, map it to the matching valid code.
 - Do not invent dates. If uncertain, omit that day.
 - The screenshot may show Czech month sheet names. Respect the selected month ${month}.
 """.trimIndent()
@@ -204,7 +210,7 @@ Rules:
                     )
                 )
             ),
-            temperature = 0.1
+            temperature = 0.0
         )
         val raw = api.translate(request).choices.firstOrNull()?.message?.content?.trim().orEmpty()
         parseShiftJson(raw)
@@ -216,16 +222,38 @@ Rules:
             .replace(Regex("^```\\s*", RegexOption.IGNORE_CASE), "")
             .replace(Regex("\\s*```\\s*$"), "")
             .trim()
-        val start = cleaned.indexOf('{')
-        val end = cleaned.lastIndexOf('}')
-        if (start < 0 || end <= start) return emptyList()
-        val json = gson.fromJson(cleaned.substring(start, end + 1), JsonObject::class.java)
-        val arr: JsonArray = json.getAsJsonArray("shifts") ?: return emptyList()
+        val jsonText = when {
+            cleaned.indexOf('{') >= 0 && cleaned.lastIndexOf('}') > cleaned.indexOf('{') ->
+                cleaned.substring(cleaned.indexOf('{'), cleaned.lastIndexOf('}') + 1)
+            cleaned.indexOf('[') >= 0 && cleaned.lastIndexOf(']') > cleaned.indexOf('[') ->
+                cleaned.substring(cleaned.indexOf('['), cleaned.lastIndexOf(']') + 1)
+            else -> return emptyList()
+        }
+        val parsed = JsonParser.parseString(jsonText)
+        val arr: JsonArray = when {
+            parsed.isJsonArray -> parsed.asJsonArray
+            parsed.isJsonObject -> parsed.asJsonObject.getAsJsonArray("shifts") ?: JsonArray()
+            else -> JsonArray()
+        }
         return arr.mapNotNull { element ->
             val obj = element.asJsonObject
             val date = runCatching { LocalDate.parse(obj.get("date")?.asString ?: return@mapNotNull null) }.getOrNull()
             val type = ShiftType.fromCode(obj.get("code")?.asString)
+                ?: shiftTypeFromLooseText(obj.toString())
             if (date != null && type != null) ShiftEntry(date, type) else null
+        }
+    }
+
+    private fun shiftTypeFromLooseText(raw: String): ShiftType? {
+        val value = raw.uppercase()
+            .replace(" ", "")
+            .replace("–", "-")
+        return when {
+            "06:00-14:00" in value || "6-14" in value || "RANN" in value -> ShiftType.MORNING_8
+            "14:00-22:00" in value || "14-22" in value || "ODPO" in value -> ShiftType.AFTERNOON_8
+            "06:00-18:00" in value || "6-18" in value || "12R" in value -> ShiftType.DAY_12
+            "18:00-06:00" in value || "18-06" in value || "18-6" in value || "NOČ" in value || "NOC" in value -> ShiftType.NIGHT_12
+            else -> null
         }
     }
 
@@ -257,16 +285,16 @@ Rules:
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
             inputStream.close()
-            val maxSize = 1400
+            val maxSize = 2200
             val outputStream = ByteArrayOutputStream()
             if (bitmap.width > maxSize || bitmap.height > maxSize) {
                 val scale = maxSize.toFloat() / maxOf(bitmap.width, bitmap.height)
                 val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
                 bitmap.recycle()
-                scaled.compress(Bitmap.CompressFormat.JPEG, 82, outputStream)
+                scaled.compress(Bitmap.CompressFormat.JPEG, 88, outputStream)
                 scaled.recycle()
             } else {
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 82, outputStream)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 88, outputStream)
                 bitmap.recycle()
             }
             Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)

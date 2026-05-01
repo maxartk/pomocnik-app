@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="camera_images" path="camera/" />
+    <cache-path name="schedule_images" path="schedule/" />
     <external-cache-path name="external_camera" path="camera/" />
+    <external-cache-path name="external_schedule" path="schedule/" />
 </paths>
