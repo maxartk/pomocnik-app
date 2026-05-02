@@ -43,6 +43,7 @@ private val TextGray = Color(0xFF8892B0)
 fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
     val context = LocalContext.current
     val entries by viewModel.entries.collectAsState()
+    val allEntries by viewModel.allEntries.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val entryCount by viewModel.entryCount.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -55,14 +56,28 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
             .background(DarkBg)
     ) {
         // Header
-        Text(
-            text = "Історія",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = NeonOrange,
-            letterSpacing = 8.sp,
-            modifier = Modifier.padding(start = 20.dp, top = 20.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 20.dp, top = 20.dp, end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = "Історія",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = NeonOrange,
+                letterSpacing = 8.sp
+            )
+            IconButton(
+                onClick = { shareAllEntries(context, allEntries) },
+                enabled = allEntries.isNotEmpty(),
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(Icons.Filled.Share, contentDescription = "Експорт", tint = if (allEntries.isNotEmpty()) NeonBlue else TextGray)
+            }
+        }
 
         // Search bar
         OutlinedTextField(
@@ -476,6 +491,37 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
         }
     }
 }
+
+private fun shareAllEntries(context: android.content.Context, entries: List<WorkEntry>) {
+    val header = "timestamp,orderId,workType,startTime,endTime,hours,ua,cz,materials,report"
+    fun esc(value: String): String = '"' + value.replace('"', '""') + '"'
+    val csv = buildString {
+        appendLine(header)
+        entries.sortedByDescending { it.timestamp }.forEach { entry ->
+            appendLine(
+                listOf(
+                    entry.timestamp.toString(),
+                    esc(entry.orderId),
+                    esc(entry.workType),
+                    esc(entry.startTime),
+                    esc(entry.endTime),
+                    entry.hours.toString(),
+                    esc(entry.descriptionUa),
+                    esc(entry.descriptionCz),
+                    esc(entry.materials),
+                    esc(entry.technicalReport)
+                ).joinToString(",")
+            )
+        }
+    }
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/csv"
+        putExtra(Intent.EXTRA_SUBJECT, "Pomocnik backup (${entries.size} záznamů)")
+        putExtra(Intent.EXTRA_TEXT, csv)
+    }
+    context.startActivity(Intent.createChooser(intent, "Exportovat historii"))
+}
+
 
 private fun shareEntry(context: android.content.Context, entry: WorkEntry) {
     val reportSection = if (entry.technicalReport.isNotEmpty()) {

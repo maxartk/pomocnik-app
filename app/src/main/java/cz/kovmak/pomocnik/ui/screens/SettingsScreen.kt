@@ -32,6 +32,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     var defaultWorkType by remember { mutableStateOf("E") }
     var selectedModel by remember { mutableStateOf(ModelConfig.DEFAULT_MODEL) }
 
+    fun isTimeValid(value: String): Boolean = Regex("^\\d{2}:\\d{2}$").matches(value) && runCatching {
+        val (h, m) = value.split(":").map { it.toInt() }
+        h in 0..23 && m in 0..59
+    }.getOrDefault(false)
+
     // Load profile values
     LaunchedEffect(profile) {
         profile?.let {
@@ -43,6 +48,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             endTime = it.defaultEndTime
             defaultWorkType = it.defaultWorkType
         }
+    }
+
+    val timeError = when {
+        startTime.isBlank() && endTime.isBlank() -> null
+        !isTimeValid(startTime) || !isTimeValid(endTime) -> "Čas musí být ve formátu HH:mm"
+        else -> null
     }
 
     Column(
@@ -237,7 +248,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         value = startTime,
                         onValueChange = {
                             startTime = it
-                            viewModel.updateDefaultTimes(it, endTime)
+                            if ((it.isBlank() || isTimeValid(it)) && (endTime.isBlank() || isTimeValid(endTime))) {
+                                viewModel.updateDefaultTimes(it, endTime)
+                            }
                         },
                         label = { Text("Výchozí začátek") },
                         modifier = Modifier.weight(1f),
@@ -247,12 +260,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         value = endTime,
                         onValueChange = {
                             endTime = it
-                            viewModel.updateDefaultTimes(startTime, it)
+                            if ((startTime.isBlank() || isTimeValid(startTime)) && (it.isBlank() || isTimeValid(it))) {
+                                viewModel.updateDefaultTimes(startTime, it)
+                            }
                         },
                         label = { Text("Výchozí konec") },
                         modifier = Modifier.weight(1f),
                         placeholder = { Text("15:30") }
                     )
+                }
+                if (timeError != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(timeError, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

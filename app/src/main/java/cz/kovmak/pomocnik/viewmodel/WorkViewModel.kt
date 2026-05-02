@@ -101,15 +101,30 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSapCauseText(text: String) = _formState.update { it.copy(sapCauseText = text) }
     fun updateSapImpact(code: String) = _formState.update { it.copy(sapImpact = code) }
 
+    private fun parseMinutes(value: String): Int? {
+        val match = Regex("^(\\d{2}):(\\d{2})$").matchEntire(value.trim()) ?: return null
+        val hours = match.groupValues[1].toIntOrNull() ?: return null
+        val minutes = match.groupValues[2].toIntOrNull() ?: return null
+        if (hours !in 0..23 || minutes !in 0..59) return null
+        return hours * 60 + minutes
+    }
+
     private fun calculateHours() {
         val s = _formState.value
-        if (s.startTime.isNotEmpty() && s.endTime.isNotEmpty()) {
-            try {
-                val sm = s.startTime.split(":").let { it[0].toInt() * 60 + it[1].toInt() }
-                val em = s.endTime.split(":").let { it[0].toInt() * 60 + it[1].toInt() }
-                _formState.update { it.copy(hours = ((em - sm) / 60.0).coerceAtLeast(0.0)) }
-            } catch (_: Exception) {}
+        val start = parseMinutes(s.startTime) ?: run {
+            if (s.startTime.isBlank() || s.endTime.isBlank()) {
+                _formState.update { it.copy(hours = 0.0) }
+            }
+            return
         }
+        val end = parseMinutes(s.endTime) ?: run {
+            if (s.startTime.isBlank() || s.endTime.isBlank()) {
+                _formState.update { it.copy(hours = 0.0) }
+            }
+            return
+        }
+        val diffMinutes = if (end >= start) end - start else (24 * 60 - start) + end
+        _formState.update { it.copy(hours = diffMinutes / 60.0) }
     }
 
     /**
@@ -240,11 +255,22 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private fun validateTimeRange(startTime: String, endTime: String): String? {
+        val start = parseMinutes(startTime) ?: return if (startTime.isBlank() && endTime.isBlank()) null else "Čas musí být ve formátu HH:mm"
+        val end = parseMinutes(endTime) ?: return if (startTime.isBlank() && endTime.isBlank()) null else "Čas musí být ve formátu HH:mm"
+        return null
+    }
+
     fun saveEntry(apiKey: String) {
         val state = _formState.value
         val profile = userProfile.value
         if (state.descriptionUa.isBlank()) {
             _formState.update { it.copy(translationError = "Zadejte popis práce") }
+            return
+        }
+        val timeError = validateTimeRange(state.startTime, state.endTime)
+        if (timeError != null) {
+            _formState.update { it.copy(translationError = timeError) }
             return
         }
         val model = getModel()

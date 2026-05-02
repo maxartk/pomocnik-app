@@ -120,6 +120,7 @@ Formát:
      */
     suspend fun askAdvisor(question: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL, imageBase64: String? = null): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
+        val chosenModel = if (imageBase64 != null) ModelConfig.VISION_MODEL else model
 
         val systemPrompt = "Ти практичний електрик на виробництві Knorr-Bremse. " +
             "Даєш конкретні відповіді на основі досвіду. " +
@@ -173,7 +174,7 @@ Formát:
         }
 
         val request = TranslationRequest(
-            model = model,
+            model = chosenModel,
             messages = listOf(
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userContent)
@@ -270,7 +271,7 @@ Vrať POUZE tento JSON, nic jiného:
     /**
      * OCR розпізнавання коду матеріалу з фото.
      */
-    suspend fun ocrMaterialCode(imageBase64: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL): String = withContext(Dispatchers.IO) {
+    suspend fun ocrMaterialCode(imageBase64: String, apiKey: String, model: String = ModelConfig.VISION_MODEL): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
         val systemPrompt = "You are an OCR assistant that extracts material codes from images."

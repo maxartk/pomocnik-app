@@ -13,6 +13,9 @@ data class ModelOption(
 
 object ModelConfig {
     val DEFAULT_MODEL = "google/gemini-2.5-flash"
+    // Separate explicit vision model for photo/OCR tasks so image features do not
+    // depend on the user's text-translation choice.
+    val VISION_MODEL = "google/gemini-2.5-flash"
     val SCHEDULE_OCR_MODEL = "google/gemini-2.5-flash"
 
     val models = listOf(

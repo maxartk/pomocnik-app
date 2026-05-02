@@ -30,6 +30,9 @@ class HistoryViewModel(application: Application) : AndroidViewModel(application)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allEntries: StateFlow<List<WorkEntry>> = repository.getAllEntries()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val entryCount = repository.getAllEntries()
         .map { it.size }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
