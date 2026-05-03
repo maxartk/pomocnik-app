@@ -494,7 +494,7 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
 
 private fun shareAllEntries(context: android.content.Context, entries: List<WorkEntry>) {
     val header = "timestamp,orderId,workType,startTime,endTime,hours,ua,cz,materials,report"
-    fun esc(value: String): String = '"' + value.replace('"', '""') + '"'
+    fun esc(value: String): String = "\"" + value.replace("\"", "\"\"") + "\""
     val csv = buildString {
         appendLine(header)
         entries.sortedByDescending { it.timestamp }.forEach { entry ->
