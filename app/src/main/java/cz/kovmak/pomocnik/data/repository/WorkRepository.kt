@@ -31,22 +31,26 @@ class WorkRepository(
     suspend fun deleteAllEntries() = dao.deleteAllEntries()
 
     /**
-     * Переклад UA→CS у формальному номінальному стилі для SAP.
+     * Переклад UA→CS у природному робочому стилі.
      */
     suspend fun translateToCzech(text: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
-        val systemPrompt = "Jsi odborný překladatel technických textů UA→CS pro průmyslové systémy SAP. " +
-            "Překládáš stručně, přesně, ve formálním nominálním stylu."
+        val systemPrompt = "Jsi zkušený překladatel ukrajinštiny do češtiny pro údržbu a výrobu. " +
+            "Překládáš přirozenou, běžnou češtinou, jak by psal pracovník kolegovi nebo mistrovi. " +
+            "Zachovej technický význam přesně, ale nepoužívej zbytečně úřední, knižní ani robotický styl."
 
-        val userPrompt = """Přelož tento technický popis z ukrajinštiny do češtiny.
+        val userPrompt = """Přelož tento text z ukrajinštiny do přirozené češtiny.
 
 Originál (UA): $text
 
 Pravidla překladu:
-- Formální nominální styl vhodný pro SAP systém
-- Technická terminologie pro elektrikáře/mechaniky
-- Krátce a věcně
+- Piš přirozeně a stručně, jako krátkou zprávu kolegovi v práci
+- Zachovej technický význam přesně
+- Používej běžnou češtinu, ne úřední formulace
+- Když je tón v originálu neformální, zachovej neformální tón i v češtině
+- Nepřidávej fráze jako "Dobrý den", "Úkol splněn" nebo "Doporučuje se", pokud nejsou v originálu
+- Nezobecňuj text, nepřepisuj ho do stylu oficiální zprávy
 - Vrať POUZE přeložený text, nic jiného"""
 
         val request = TranslationRequest(
