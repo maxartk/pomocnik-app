@@ -7,9 +7,11 @@ import cz.kovmak.pomocnik.data.network.TranslationRequest
 import cz.kovmak.pomocnik.data.network.Message
 import cz.kovmak.pomocnik.data.network.ContentPart
 import cz.kovmak.pomocnik.data.network.ImageUrl
-import cz.kovmak.pomocnik.data.model.SapFieldResult
 import cz.kovmak.pomocnik.data.model.SapCatalogs
+import cz.kovmak.pomocnik.data.model.SapFieldParser
+import cz.kovmak.pomocnik.data.model.SapFieldResult
 import cz.kovmak.pomocnik.data.network.ModelConfig
+
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -218,6 +220,12 @@ Pravidla:
 - Příčina: vyber nejvhodnější kód z MGLO001-007 podle popisu (jen číslo, např. "1305" nebo "1226")
 - Text příčiny: stručná příčina v češtině
 - Dopad: 1=Bez vlivu, 2=Omezení výroby, 3=Výpadek výroby
+- VŠECH 6 KLÍČŮ je povinných. Pokud si nejsi jistý textem, vrať krátký odhad; nevynechávej `damageText`, `cause`, `causeText` ani `impact`.
+- U katalogových polí vrať jen samotný kód bez prefixu a bez popisu:
+  - `objectPart`: jen 4 číslice (např. `2208`)
+  - `damageDesc`: jen 4 číslice (např. `1012`)
+  - `cause`: jen 4 číslice (např. `1399`)
+  - `impact`: jen `1`, `2` nebo `3`
 
 Vrať POUZE tento JSON, nic jiného:
 {"objectPart":"2208","damageDesc":"1023","damageText":"Nelze posunout do home pozice","cause":"1305","causeText":"Zkrat nebo elektrická porucha","impact":"3"}"""
@@ -232,40 +240,10 @@ Vrať POUZE tento JSON, nic jiného:
         )
 
         val response = dynamicApi.translate(request)
-        var rawContent = response.choices.firstOrNull()?.message?.content?.trim() ?: "{}"
-        
-        // Strip markdown code fences (```json ... ```) and extract JSON block
-        rawContent = rawContent
-            .replace(Regex("^```json\\s*", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("^```\\s*", RegexOption.IGNORE_CASE), "")
-            .replace(Regex("\\s*```\\s*$"), "")
-            .trim()
-        
-        // Fallback: extract JSON between first { and last }
-        val jsonStart = rawContent.indexOf('{')
-        val jsonEnd = rawContent.lastIndexOf('}')
-        if (jsonStart >= 0 && jsonEnd > jsonStart) {
-            rawContent = rawContent.substring(jsonStart, jsonEnd + 1)
-        }
-
-        // Parse JSON — use Gson (already in project for multimodal)
-        val gson = com.google.gson.Gson()
-        try {
-            val json = gson.fromJson(rawContent, com.google.gson.JsonObject::class.java)
-            val result = SapFieldResult(
-                objectPart = json.get("objectPart")?.asString ?: "",
-                damageDesc = json.get("damageDesc")?.asString ?: "",
-                damageText = json.get("damageText")?.asString ?: "",
-                cause = json.get("cause")?.asString ?: "",
-                causeText = json.get("causeText")?.asString ?: "",
-                impact = json.get("impact")?.asString ?: ""
-            )
-            android.util.Log.d("Pomocnik", "SAP fields extracted: $result")
-            return@withContext result
-        } catch (e: Exception) {
-            android.util.Log.e("Pomocnik", "Failed to parse SAP fields JSON: '$rawContent'", e)
-            return@withContext SapFieldResult()
-        }
+        val rawContent = response.choices.firstOrNull()?.message?.content?.trim() ?: "{}"
+        val result = SapFieldParser.parse(rawContent)
+        android.util.Log.d("Pomocnik", "SAP fields extracted from raw='$rawContent' => $result")
+        return@withContext result
     }
 
     /**
