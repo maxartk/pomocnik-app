@@ -22,6 +22,9 @@ import cz.kovmak.pomocnik.ui.screens.HistoryScreen
 import cz.kovmak.pomocnik.ui.screens.SettingsScreen
 import cz.kovmak.pomocnik.ui.screens.ShiftScheduleScreen
 import cz.kovmak.pomocnik.ui.theme.PomocnikTheme
+import androidx.lifecycle.viewmodel.compose.viewModel
+import cz.kovmak.pomocnik.viewmodel.WorkViewModel
+import cz.kovmak.pomocnik.data.database.WorkEntry
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,6 +40,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PomocnikApp() {
     var selectedTab by remember { mutableStateOf(0) }
+    val workViewModel: WorkViewModel = viewModel()
 
     Scaffold(
         containerColor = Color(0xFF080B12),
@@ -112,8 +116,17 @@ fun PomocnikApp() {
                 )
         ) {
             when (selectedTab) {
-                0 -> HomeScreen()
-                1 -> HistoryScreen()
+                0 -> HomeScreen(viewModel = workViewModel)
+                1 -> HistoryScreen(onRepeatEntry = { entry ->
+                    // Pre-fill WorkViewModel and switch to Home tab
+                    workViewModel.updateDescriptionUa(entry.descriptionUa)
+                    workViewModel.updateOrderId(entry.orderId)
+                    workViewModel.updateWorkType(entry.workType)
+                    workViewModel.updateMaterials(entry.materials)
+                    workViewModel.updateStartTime(entry.startTime)
+                    workViewModel.updateEndTime(entry.endTime)
+                    selectedTab = 0
+                })
                 2 -> ShiftScheduleScreen()
                 3 -> SettingsScreen()
             }

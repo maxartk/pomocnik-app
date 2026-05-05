@@ -229,34 +229,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Quick templates
-                Spacer(modifier = Modifier.height(10.dp))
-                Text("Шаблони робіт", color = TextGray, fontSize = 11.sp)
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val templates = listOf(
-                        "Перевірив кабель і затягнув клеми",
-                        "Замінено датчик та перевірено сигнал",
-                        "Почищено щиток і відновлено контакт",
-                        "Перевірено двигун, кабель і захист"
-                    )
-                    templates.forEach { template ->
-                        FilterChip(
-                            selected = false,
-                            onClick = { viewModel.updateDescriptionUa(template) },
-                            label = { Text(template, fontSize = 11.sp) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                containerColor = DarkSurface,
-                                selectedContainerColor = NeonOrange,
-                                selectedLabelColor = Color.White
-                            )
-                        )
-                    }
-                }
-
                 // Quick action chips
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -602,6 +574,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             value = formState.sapCauseText,
                             onValueChange = { viewModel.updateSapCauseText(it) },
                             label = { Text("Text příčiny", fontSize = 12.sp) },
+                            placeholder = { Text("Jak byl problém odstraněn (krátce)", color = TextGray.copy(alpha = 0.4f), fontSize = 12.sp) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = NeonOrange,

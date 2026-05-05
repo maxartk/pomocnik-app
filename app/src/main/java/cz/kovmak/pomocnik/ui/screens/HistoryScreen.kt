@@ -40,7 +40,7 @@ private val TextGray = Color(0xFF8892B0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
+fun HistoryScreen(viewModel: HistoryViewModel = viewModel(), onRepeatEntry: (WorkEntry) -> Unit = {}) {
     val context = LocalContext.current
     val entries by viewModel.entries.collectAsState()
     val allEntries by viewModel.allEntries.collectAsState()
@@ -49,6 +49,13 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var entryToDelete by remember { mutableStateOf<WorkEntry?>(null) }
     var selectedEntry by remember { mutableStateOf<WorkEntry?>(null) }
+    var entryToRepeat by remember { mutableStateOf<WorkEntry?>(null) }
+
+    // Navigate to Home tab with pre-filled data
+    val onRepeat: (WorkEntry) -> Unit = { entry ->
+        onRepeatEntry(entry)
+        entryToRepeat = entry
+    }
 
     Column(
         modifier = Modifier
@@ -141,10 +148,23 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
                             entryToDelete = entry
                             showDeleteDialog = true
                         },
-                        onShare = { shareEntry(context, entry) }
+                        onShare = { shareEntry(context, entry) },
+                        onRepeat = { onRepeat(entry) }
                     )
                 }
             }
+        }
+    }
+
+    // Show toast when entry is marked for repeat
+    entryToRepeat?.let { entry ->
+        LaunchedEffect(entry) {
+            android.widget.Toast.makeText(
+                context,
+                "Zkopírováno: ${entry.descriptionUa.take(40)}",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            entryToRepeat = null
         }
     }
 
@@ -153,7 +173,8 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
         EntryDetailDialog(
             entry = entry,
             onDismiss = { selectedEntry = null },
-            onShare = { shareEntry(context, entry) }
+            onShare = { shareEntry(context, entry) },
+            onRepeat = { onRepeat(entry); selectedEntry = null }
         )
     }
 
@@ -177,7 +198,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = viewModel()) {
 }
 
 @Composable
-fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Unit) {
+fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Unit, onRepeat: () -> Unit = {}) {
     val context = LocalContext.current
     val dateFormat = SimpleDateFormat("dd.MM.yyyy  HH:mm", Locale.getDefault())
     val workTypeLabel = if (entry.workType == "E") "⚡ Elektrická" else "🔧 Mechanická"
@@ -357,10 +378,20 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = onShare,
+                        onClick = onRepeat,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
+                    ) {
+                        Icon(Icons.Filled.Replay, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Повторити", fontSize = 13.sp)
+                    }
+                    OutlinedButton(
+                        onClick = onShare,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue)
                     ) {
                         Icon(Icons.Outlined.Share, null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
@@ -406,7 +437,7 @@ private fun DetailRow(label: String, value: String) {
 }
 
 @Composable
-fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit) {
+fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onShare: () -> Unit, onRepeat: () -> Unit = {}) {
     val dateFormat = SimpleDateFormat("dd.MM.yyyy  HH:mm", Locale.getDefault())
     val workTypeColor = if (entry.workType == "E") NeonOrange else NeonBlue
     val workTypeIcon = if (entry.workType == "E") "⚡" else "🔧"
@@ -480,8 +511,11 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(onClick = onRepeat, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Filled.Replay, "Повторити", tint = NeonOrange, modifier = Modifier.size(18.dp))
+                    }
                     IconButton(onClick = onShare, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Outlined.Share, null, tint = NeonOrange, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.Share, null, tint = NeonBlue, modifier = Modifier.size(18.dp))
                     }
                     IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Outlined.Delete, null, tint = TextGray, modifier = Modifier.size(18.dp))
