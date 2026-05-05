@@ -36,22 +36,28 @@ class WorkRepository(
     suspend fun translateToCzech(text: String, apiKey: String, model: String = ModelConfig.DEFAULT_MODEL): String = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
-        val systemPrompt = "Jsi zkušený překladatel ukrajinštiny do češtiny pro údržbu a výrobu. " +
-            "Překládáš přirozenou, běžnou češtinou, jak by psal pracovník kolegovi nebo mistrovi. " +
-            "Zachovej technický význam přesně, ale nepoužívej zbytečně úřední, knižní ani robotický styl."
+        val systemPrompt = "Jsi zkušený překladatel a jazykový asistent pro průmyslovou údržbu. " +
+            "Pracuješ s texty psanými směsí ukrajinštiny a češtiny — uživatel píše převážně ukrajinsky, " +
+            "ale občas vkládá česká slova nebo technické termíny (i špatně napsané). " +
+            "Tvým úkolem je porozumět celému textu bez ohledu na jazyk nebo pravopisné chyby, " +
+            "a přeložit vše do přirozené, stručné češtiny jak by psal pracovník kolegovi v práci."
 
-        val userPrompt = """Přelož tento text z ukrajinštiny do přirozené češtiny.
+        val userPrompt = """Přelož tento text do přirozené češtiny.
 
-Originál (UA): $text
+Text může obsahovat:
+- ukrajinská slova
+- česká slova (i špatně napsaná nebo foneticky zapsaná)
+- směs obou jazyků v jedné větě
 
-Pravidla překladu:
-- Piš přirozeně a stručně, jako krátkou zprávu kolegovi v práci
-- Zachovej technický význam přesně
-- Používej běžnou češtinu, ne úřední formulace
-- Když je tón v originálu neformální, zachovej neformální tón i v češtině
-- Nepřidávej fráze jako "Dobrý den", "Úkol splněn" nebo "Doporučuje se", pokud nejsou v originálu
-- Nezobecňuj text, nepřepisuj ho do stylu oficiální zprávy
-- Vrať POUZE přeložený text, nic jiného"""
+Originál: $text
+
+Pravidla:
+- Porozumět textu jako celku, bez ohledu na jazyk nebo pravopis
+- Přeložit vše do přirozené, stručné češtiny
+- Zachovat technický význam přesně
+- Nepoužívat úřední nebo robotický styl
+- Nepřidávat fráze které nejsou v originálu ("Dobrý den", "Úkol splněn" apod.)
+- Vrátit POUZE přeložený text, nic jiného"""
 
         val request = TranslationRequest(
             model = model,
