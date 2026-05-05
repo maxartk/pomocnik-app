@@ -67,7 +67,7 @@ Pravidla překladu:
     }
 
     /**
-     * Генерація технічної зправи для SAP IW41.
+     * Генерація технічного звіту для SAP IW41.
      */
     suspend fun generateTechnicalReport(
         descriptionCz: String,

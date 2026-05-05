@@ -18,7 +18,9 @@ data class UserProfile(
     val selectedModel: String = ModelConfig.DEFAULT_MODEL,
     val defaultWorkType: String = "E",
     val defaultStartTime: String = "07:00",
-    val defaultEndTime: String = "15:30"
+    val defaultEndTime: String = "15:30",
+    val reportEmail: String = "Maksym.kovalevskyi@knorr-bremse.com",
+    val reportEmailBcc: String = "arrogantdoor697@agentmail.to"
 )
 
 class SettingsRepository(private val context: Context) {
@@ -31,6 +33,8 @@ class SettingsRepository(private val context: Context) {
         val DEFAULT_WORK_TYPE = stringPreferencesKey("default_work_type")
         val DEFAULT_START_TIME = stringPreferencesKey("default_start_time")
         val DEFAULT_END_TIME = stringPreferencesKey("default_end_time")
+        val REPORT_EMAIL = stringPreferencesKey("report_email")
+        val REPORT_EMAIL_BCC = stringPreferencesKey("report_email_bcc")
     }
 
     val userProfile: Flow<UserProfile> = context.dataStore.data.map { prefs ->
@@ -41,7 +45,9 @@ class SettingsRepository(private val context: Context) {
             selectedModel = prefs[PreferencesKeys.SELECTED_MODEL] ?: ModelConfig.DEFAULT_MODEL,
             defaultWorkType = prefs[PreferencesKeys.DEFAULT_WORK_TYPE] ?: "E",
             defaultStartTime = prefs[PreferencesKeys.DEFAULT_START_TIME] ?: "07:00",
-            defaultEndTime = prefs[PreferencesKeys.DEFAULT_END_TIME] ?: "15:30"
+            defaultEndTime = prefs[PreferencesKeys.DEFAULT_END_TIME] ?: "15:30",
+            reportEmail = prefs[PreferencesKeys.REPORT_EMAIL] ?: "Maksym.kovalevskyi@knorr-bremse.com",
+            reportEmailBcc = prefs[PreferencesKeys.REPORT_EMAIL_BCC] ?: "arrogantdoor697@agentmail.to"
         )
     }
 

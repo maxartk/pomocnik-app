@@ -229,25 +229,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Clear text button — visible when text is present
-                if (formState.descriptionUa.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = {
-                            viewModel.updateDescriptionUa("")
-                            // Also clear any previous translation
-                            viewModel.clearResults()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF4444))
-                    ) {
-                        Icon(Icons.Filled.DeleteSweep, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Очистити текст", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-
                 // Quick templates
                 Spacer(modifier = Modifier.height(10.dp))
                 Text("Шаблони робіт", color = TextGray, fontSize = 11.sp)
@@ -520,7 +501,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                     ) {
                         Icon(Icons.Filled.Description, null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Згенерувати технічну зправу", fontSize = 13.sp)
+                        Text("Згенерувати технічний звіт", fontSize = 13.sp)
                     }
                 }
             }
@@ -777,9 +758,9 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         type = "message/rfc822"
                         putExtra(
                             Intent.EXTRA_EMAIL,
-                            arrayOf("kovmak82cz@gmail.com", "Maksym.kovalevskyi@knorr-bremse.com")
+                            arrayOf(profile?.reportEmail ?: "Maksym.kovalevskyi@knorr-bremse.com")
                         )
-                        putExtra(Intent.EXTRA_BCC, arrayOf("arrogantdoor697@agentmail.to"))
+                        putExtra(Intent.EXTRA_BCC, arrayOf(profile?.reportEmailBcc ?: "arrogantdoor697@agentmail.to"))
                         putExtra(Intent.EXTRA_SUBJECT, subject)
                         putExtra(Intent.EXTRA_TEXT, emailBody)
                     }

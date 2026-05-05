@@ -12,6 +12,8 @@ import cz.kovmak.pomocnik.data.repository.WorkRepository
 import cz.kovmak.pomocnik.data.settings.SettingsRepository
 import cz.kovmak.pomocnik.data.settings.UserProfile
 import cz.kovmak.pomocnik.data.network.ModelConfig
+import cz.kovmak.pomocnik.data.network.OpenRouterApi
+import cz.kovmak.pomocnik.data.model.SapFieldResult
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -45,7 +47,12 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = (application as cz.kovmak.pomocnik.PomocnikApp).database
     private val settingsRepo = SettingsRepository(application)
-    private lateinit var repository: WorkRepository
+
+    // Repository initialized once — avoids lateinit crash if apiKey not yet loaded
+    private val repository: WorkRepository = WorkRepository(
+        database.workEntryDao(),
+        OpenRouterApi.create("")
+    )
 
     private val _formState = MutableStateFlow(WorkFormState())
     val formState: StateFlow<WorkFormState> = _formState
@@ -73,17 +80,19 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             userProfile.collect { profile ->
                 profile?.let {
-                    _formState.update {
-                        it.copy(
-                            workType = it.workType.ifBlank { profile.defaultWorkType }.ifBlank { "E" },
-                            startTime = it.startTime.ifBlank { profile.defaultStartTime }.ifBlank { "07:00" },
-                            endTime = it.endTime.ifBlank { profile.defaultEndTime }.ifBlank { "15:30" }
+                    _formState.update { state ->
+                        state.copy(
+                            workType = state.workType.ifBlank { profile.defaultWorkType }.ifBlank { "E" },
+                            startTime = state.startTime.ifBlank { profile.defaultStartTime }.ifBlank { "07:00" },
+                            endTime = state.endTime.ifBlank { profile.defaultEndTime }.ifBlank { "15:30" }
                         )
                     }
                 }
             }
         }
     }
+
+    // ── Form field updates ────────────────────────────────────────────────────
 
     fun updateOrderId(orderId: String) = _formState.update { it.copy(orderId = orderId) }
     fun updateWorkType(workType: String) = _formState.update { it.copy(workType = workType) }
@@ -100,122 +109,100 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSapCause(code: String) = _formState.update { it.copy(sapCause = code) }
     fun updateSapCauseText(text: String) = _formState.update { it.copy(sapCauseText = text) }
     fun updateSapImpact(code: String) = _formState.update { it.copy(sapImpact = code) }
+    fun resetError() = _formState.update { it.copy(translationError = null, saveSuccess = false) }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private fun getModel(): String = userProfile.value?.selectedModel ?: ModelConfig.DEFAULT_MODEL
+
+    private fun apiKey(): String = userProfile.value?.openRouterApiKey ?: ""
 
     private fun parseMinutes(value: String): Int? {
         val match = Regex("^(\\d{2}):(\\d{2})$").matchEntire(value.trim()) ?: return null
-        val hours = match.groupValues[1].toIntOrNull() ?: return null
-        val minutes = match.groupValues[2].toIntOrNull() ?: return null
-        if (hours !in 0..23 || minutes !in 0..59) return null
-        return hours * 60 + minutes
+        val h = match.groupValues[1].toIntOrNull() ?: return null
+        val m = match.groupValues[2].toIntOrNull() ?: return null
+        if (h !in 0..23 || m !in 0..59) return null
+        return h * 60 + m
     }
 
     private fun calculateHours() {
         val s = _formState.value
-        val start = parseMinutes(s.startTime) ?: run {
-            if (s.startTime.isBlank() || s.endTime.isBlank()) {
-                _formState.update { it.copy(hours = 0.0) }
-            }
-            return
-        }
-        val end = parseMinutes(s.endTime) ?: run {
-            if (s.startTime.isBlank() || s.endTime.isBlank()) {
-                _formState.update { it.copy(hours = 0.0) }
-            }
-            return
-        }
-        val diffMinutes = if (end >= start) end - start else (24 * 60 - start) + end
-        _formState.update { it.copy(hours = diffMinutes / 60.0) }
+        val start = parseMinutes(s.startTime) ?: return
+        val end = parseMinutes(s.endTime) ?: return
+        val diff = if (end >= start) end - start else (24 * 60 - start) + end
+        _formState.update { it.copy(hours = diff / 60.0) }
     }
 
     /**
-     * Convert URI to Base64 string for sending to vision API.
-     * Compresses image to reasonable size for API calls.
-     * Supports both content:// and file:// URIs.
+     * Converts a content:// or file:// URI to a base64 JPEG string.
+     * Scales down images larger than 1024px to reduce API payload.
      */
     private fun uriToBase64(uriString: String): String? {
         return try {
             val uri = Uri.parse(uriString)
             val context = getApplication<Application>()
-            val inputStream = try {
-                context.contentResolver.openInputStream(uri)
-            } catch (e: Exception) {
-                // Fallback: try file:// URI
-                null
-            } ?: return null
-            
-            val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
-            inputStream.close()
-            
-            // Scale down if too large (max 1024px for API efficiency + size limit)
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val bitmap = BitmapFactory.decodeStream(inputStream).also { inputStream.close() } ?: return null
+
             val maxSize = 1024
-            var width = bitmap.width
-            var height = bitmap.height
-            val outputStream = ByteArrayOutputStream()
-            if (width > maxSize || height > maxSize) {
-                val scale = maxSize.toFloat() / maxOf(width, height)
-                width = (width * scale).toInt()
-                height = (height * scale).toInt()
-                val scaled = Bitmap.createScaledBitmap(bitmap, width, height, true)
-                bitmap.recycle()
-                scaled.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
-                scaled.recycle()
-            } else {
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 75, outputStream)
-                bitmap.recycle()
-            }
-            Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
+            val scaled = if (bitmap.width > maxSize || bitmap.height > maxSize) {
+                val scale = maxSize.toFloat() / maxOf(bitmap.width, bitmap.height)
+                Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+                    .also { bitmap.recycle() }
+            } else bitmap
+
+            val out = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, 75, out)
+            scaled.recycle()
+            Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
             android.util.Log.e("Pomocnik", "uriToBase64 failed: ${e.message}", e)
             null
         }
     }
 
-    /** Get the selected model from user profile, fallback to default */
-    private fun getModel(): String = userProfile.value?.selectedModel ?: ModelConfig.DEFAULT_MODEL
+    // ── API actions ──────────────────────────────────────────────────────────
 
-    /** SUBMIT mode: переклад UA→CS */
-    fun translate(apiKey: String) {
+    /** SUBMIT mode: Translate UA→CS. SAP auto-fill is NOT called automatically — user triggers it manually. */
+    fun translate(apiKey: String = apiKey()) {
         val desc = _formState.value.descriptionUa
         if (desc.isBlank()) return
-        val model = getModel()
+        if (apiKey.isBlank()) {
+            _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
+            return
+        }
         _formState.update { it.copy(isTranslating = true, translationError = null) }
         viewModelScope.launch {
             try {
-                repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val translated = repository.translateToCzech(desc, apiKey, model)
+                val translated = repository.translateToCzech(desc, apiKey, getModel())
                 _translationResult.value = translated
                 _formState.update { it.copy(isTranslating = false) }
-                
-                // Auto-fill SAP fields
-                autoFillSapFields(apiKey)
             } catch (e: Exception) {
-                _formState.update { it.copy(isTranslating = false, translationError = "Chyba: ${e.localizedMessage}") }
+                _formState.update { it.copy(isTranslating = false, translationError = "Chyba překladu: ${e.localizedMessage}") }
             }
         }
     }
 
-    /** ADVISOR mode: питання до електрика (з фото або без) */
-    fun askAdvisor(apiKey: String) {
+    /** ADVISOR mode: Ask question with optional photo. */
+    fun askAdvisor(apiKey: String = apiKey()) {
         val question = _formState.value.descriptionUa
         if (question.isBlank()) return
-        val model = getModel()
-        _formState.update { it.copy(isTranslating = true, translationError = null) }
-        
-        val photoUri = _formState.value.photoUri
-        val imageBase64 = photoUri?.let { uri ->
-            val result = uriToBase64(uri)
-            if (result == null) {
-                android.util.Log.e("Pomocnik", "Failed to convert photo to base64: $uri")
-            } else {
-                android.util.Log.d("Pomocnik", "Photo converted to base64, size=${result.length}")
-            }
-            result
+        if (apiKey.isBlank()) {
+            _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
+            return
         }
-        
+        _formState.update { it.copy(isTranslating = true, translationError = null) }
+
+        val imageBase64 = _formState.value.photoUri?.let { uri ->
+            uriToBase64(uri).also { result ->
+                if (result == null) android.util.Log.e("Pomocnik", "Failed to convert photo: $uri")
+                else android.util.Log.d("Pomocnik", "Photo base64 size=${result.length}")
+            }
+        }
+
         viewModelScope.launch {
             try {
-                repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val answer = repository.askAdvisor(question, apiKey, model, imageBase64)
+                val answer = repository.askAdvisor(question, apiKey, getModel(), imageBase64)
                 _advisorResult.value = answer
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
@@ -225,16 +212,14 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Генерація технічної зправи після перекладу */
-    fun generateReport(apiKey: String) {
+    /** Generate technical report for SAP IW41. */
+    fun generateReport(apiKey: String = apiKey()) {
         val state = _formState.value
         val translation = _translationResult.value ?: return
-        val profile = userProfile.value ?: return
-        val model = getModel()
+        if (apiKey.isBlank()) return
         _formState.update { it.copy(isTranslating = true) }
         viewModelScope.launch {
             try {
-                repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
                 val report = repository.generateTechnicalReport(
                     descriptionCz = translation,
                     descriptionUa = state.descriptionUa,
@@ -245,113 +230,27 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     hours = state.hours,
                     materials = state.materials,
                     apiKey = apiKey,
-                    model = model
+                    model = getModel()
                 )
                 _technicalReport.value = report
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
-                _formState.update { it.copy(isTranslating = false, translationError = "Chyba reportu: ${e.localizedMessage}") }
+                _formState.update { it.copy(isTranslating = false, translationError = "Chyba zprávy: ${e.localizedMessage}") }
             }
         }
     }
 
-    private fun validateTimeRange(startTime: String, endTime: String): String? {
-        val start = parseMinutes(startTime) ?: return if (startTime.isBlank() && endTime.isBlank()) null else "Čas musí být ve formátu HH:mm"
-        val end = parseMinutes(endTime) ?: return if (startTime.isBlank() && endTime.isBlank()) null else "Čas musí být ve formátu HH:mm"
-        return null
-    }
-
-    fun saveEntry(apiKey: String) {
-        val state = _formState.value
-        val profile = userProfile.value
-        if (state.descriptionUa.isBlank()) {
-            _formState.update { it.copy(translationError = "Zadejte popis práce") }
-            return
-        }
-        val timeError = validateTimeRange(state.startTime, state.endTime)
-        if (timeError != null) {
-            _formState.update { it.copy(translationError = timeError) }
-            return
-        }
-        val model = getModel()
-        _formState.update { it.copy(isSaving = true) }
-        viewModelScope.launch {
-            try {
-                repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val descCz = _translationResult.value ?: repository.translateToCzech(state.descriptionUa, apiKey, model)
-                val techReport = _technicalReport.value ?: ""
-                
-                // Auto-fill SAP fields if not already populated
-                val sapFields = if (state.sapObjectPart.isBlank() && state.sapDamageDesc.isBlank()) {
-                    repository.extractSapFields(descCz, state.descriptionUa, apiKey, model)
-                } else {
-                    cz.kovmak.pomocnik.data.model.SapFieldResult(
-                        objectPart = state.sapObjectPart,
-                        damageDesc = state.sapDamageDesc,
-                        damageText = state.sapDamageText,
-                        cause = state.sapCause,
-                        causeText = state.sapCauseText,
-                        impact = state.sapImpact
-                    )
-                }
-                
-                val entry = WorkEntry(
-                    orderId = state.orderId, workType = state.workType,
-                    descriptionUa = state.descriptionUa, descriptionCz = descCz,
-                    technicalReport = techReport,
-                    materials = state.materials, startTime = state.startTime,
-                    endTime = state.endTime, hours = state.hours,
-                    photoUri = state.photoUri, userName = profile?.name ?: "",
-                    userEmail = profile?.email ?: "",
-                    sapObjectPart = sapFields.objectPart,
-                    sapDamageDesc = sapFields.damageDesc,
-                    sapDamageText = sapFields.damageText,
-                    sapCause = sapFields.cause,
-                    sapCauseText = sapFields.causeText,
-                    sapImpact = sapFields.impact,
-                )
-                repository.insertEntry(entry)
-                _formState.update { it.copy(isSaving = false, saveSuccess = true) }
-                kotlinx.coroutines.delay(1500)
-                resetForm(profile)
-            } catch (e: Exception) {
-                _formState.update { it.copy(isSaving = false, translationError = "Chyba: ${e.localizedMessage}") }
-            }
-        }
-    }
-
-    private fun resetForm(profile: cz.kovmak.pomocnik.data.settings.UserProfile?) {
-        _formState.value = WorkFormState(
-            workType = profile?.defaultWorkType ?: "E",
-            startTime = profile?.defaultStartTime ?: "07:00",
-            endTime = profile?.defaultEndTime ?: "15:30"
-        )
-        _translationResult.value = null
-        _advisorResult.value = null
-        _technicalReport.value = null
-    }
-
-    fun resetError() = _formState.update { it.copy(translationError = null, saveSuccess = false) }
-
-    /** Clear text and all results (translation, advisor, report) */
-    fun clearResults() {
-        _formState.update { it.copy(descriptionUa = "", translationError = null) }
-        _translationResult.value = null
-        _advisorResult.value = null
-        _technicalReport.value = null
-    }
-
-    fun autoFillSapFields(apiKey: String) {
+    /** Auto-fill SAP fields from the current translation or description. */
+    fun autoFillSapFields(apiKey: String = apiKey()) {
         val state = _formState.value
         val translation = _translationResult.value ?: state.descriptionUa
         if (translation.isBlank()) return
-        val model = getModel()
+        if (apiKey.isBlank()) return
         _formState.update { it.copy(isAutoFilling = true, translationError = null) }
         viewModelScope.launch {
             try {
-                repository = WorkRepository(database.workEntryDao(), cz.kovmak.pomocnik.data.network.OpenRouterApi.create(apiKey))
-                val sapFields = repository.extractSapFields(translation, state.descriptionUa, apiKey, model)
-                _formState.update { 
+                val sapFields = repository.extractSapFields(translation, state.descriptionUa, apiKey, getModel())
+                _formState.update {
                     it.copy(
                         sapObjectPart = sapFields.objectPart,
                         sapDamageDesc = sapFields.damageDesc,
@@ -367,5 +266,96 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 _formState.update { it.copy(isAutoFilling = false, translationError = "SAP auto-fill chyba: ${e.localizedMessage}") }
             }
         }
+    }
+
+    /** Save the current work entry to the local database. */
+    fun saveEntry(apiKey: String = apiKey()) {
+        val state = _formState.value
+        val profile = userProfile.value
+
+        if (state.descriptionUa.isBlank()) {
+            _formState.update { it.copy(translationError = "Zadejte popis práce") }
+            return
+        }
+        if (apiKey.isBlank()) {
+            _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
+            return
+        }
+
+        val start = parseMinutes(state.startTime)
+        val end = parseMinutes(state.endTime)
+        if ((state.startTime.isNotBlank() || state.endTime.isNotBlank()) && (start == null || end == null)) {
+            _formState.update { it.copy(translationError = "Čas musí být ve formátu HH:mm") }
+            return
+        }
+
+        _formState.update { it.copy(isSaving = true) }
+        viewModelScope.launch {
+            try {
+                val descCz = _translationResult.value
+                    ?: repository.translateToCzech(state.descriptionUa, apiKey, getModel())
+
+                val techReport = _technicalReport.value ?: ""
+
+                val sapFields = if (state.sapObjectPart.isBlank() && state.sapDamageDesc.isBlank()) {
+                    repository.extractSapFields(descCz, state.descriptionUa, apiKey, getModel())
+                } else {
+                    SapFieldResult(
+                        objectPart = state.sapObjectPart,
+                        damageDesc = state.sapDamageDesc,
+                        damageText = state.sapDamageText,
+                        cause = state.sapCause,
+                        causeText = state.sapCauseText,
+                        impact = state.sapImpact
+                    )
+                }
+
+                val entry = WorkEntry(
+                    orderId = state.orderId,
+                    workType = state.workType,
+                    descriptionUa = state.descriptionUa,
+                    descriptionCz = descCz,
+                    technicalReport = techReport,
+                    materials = state.materials,
+                    startTime = state.startTime,
+                    endTime = state.endTime,
+                    hours = state.hours,
+                    photoUri = state.photoUri,
+                    userName = profile?.name ?: "",
+                    userEmail = profile?.email ?: "",
+                    sapObjectPart = sapFields.objectPart,
+                    sapDamageDesc = sapFields.damageDesc,
+                    sapDamageText = sapFields.damageText,
+                    sapCause = sapFields.cause,
+                    sapCauseText = sapFields.causeText,
+                    sapImpact = sapFields.impact,
+                )
+                repository.insertEntry(entry)
+                _formState.update { it.copy(isSaving = false, saveSuccess = true) }
+                kotlinx.coroutines.delay(1500)
+                resetForm(profile)
+            } catch (e: Exception) {
+                _formState.update { it.copy(isSaving = false, translationError = "Chyba uložení: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    /** Clear all results and the text field. */
+    fun clearResults() {
+        _formState.update { it.copy(descriptionUa = "", translationError = null) }
+        _translationResult.value = null
+        _advisorResult.value = null
+        _technicalReport.value = null
+    }
+
+    private fun resetForm(profile: UserProfile?) {
+        _formState.value = WorkFormState(
+            workType = profile?.defaultWorkType ?: "E",
+            startTime = profile?.defaultStartTime ?: "07:00",
+            endTime = profile?.defaultEndTime ?: "15:30"
+        )
+        _translationResult.value = null
+        _advisorResult.value = null
+        _technicalReport.value = null
     }
 }
