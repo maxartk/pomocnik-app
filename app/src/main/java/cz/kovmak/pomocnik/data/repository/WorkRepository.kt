@@ -228,7 +228,7 @@ Pravidla:
 - Popis škody: vyber kód z MCZ001 který nejlépe odpovídá (jen číslo, např. "1023")
 - Text poškození: stručný popis v češtině (1 věta, formální styl)
 - Příčina: vyber nejvhodnější kód z MGLO001-007 podle popisu (jen číslo, např. "1305" nebo "1226")
-- Text příčiny: stručně JAK BYLA OPRAVENA závada (1 věta, co technik udělal — např. "Dorazy seřízeny a zajištěny", "Kabel vyměněn", "Kontakty vyčištěny a dotaženy")
+- Text příčiny: stručný popis příčiny závady v češtině (1 věta, co způsobilo problém — např. "Špatně nastavený senzor", "Uvolněný kabel", "Opotřebené těsnění")
 - Dopad: 1=Bez vlivu, 2=Omezení výroby, 3=Výpadek výroby
 - VŠECH 6 KLÍČŮ je povinných. Pokud si nejsi jistý textem, vrať krátký odhad; nevynechávej `damageText`, `cause`, `causeText` ani `impact`.
 - U katalogových polí vrať jen samotný kód bez prefixu a bez popisu:
@@ -238,7 +238,7 @@ Pravidla:
   - `impact`: jen `1`, `2` nebo `3`
 
 Vrať POUZE tento JSON, nic jiného:
-{"objectPart":"2208","damageDesc":"1023","damageText":"Nelze posunout do home pozice","cause":"1305","causeText":"Kabel vyměněn a opatřen bužírkou","impact":"3"}"""
+{"objectPart":"2208","damageDesc":"1023","damageText":"Nelze posunout do home pozice","cause":"1305","causeText":"Zkrat způsobený vadným kabelem","impact":"3"}"""
 
         val request = TranslationRequest(
             model = model,
