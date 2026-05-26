@@ -22,7 +22,8 @@ import kotlinx.coroutines.withContext
 
 data class SapPhotoReportDraft(
     val descriptionCz: String,
-    val technicalReport: String
+    val technicalReport: String,
+    val notificationTime: String = ""
 )
 
 class WorkRepository(
@@ -248,7 +249,7 @@ Umíš číst fotky hlášení/zakázky ze SAP a z krátké poznámky pracovník
 Piš jako normální elektrikář z údržby, ne jako kancelář nebo inženýr. Zachovej technický význam přesně.""".trimIndent()
 
         val textPrompt = """Vytvoř výstup pro pracovní hlášení podle těchto vstupů:
-1) FOTO SAP ZAKÁZKY/HLÁŠENÍ: přečti číslo zakázky, technické místo a původní závadu, pokud jsou vidět.
+1) FOTO SAP ZAKÁZKY/HLÁŠENÍ: přečti číslo zakázky, technické místo, čas hlášení a původní závadu, pokud jsou vidět.
 2) FOTO SKUTEČNÉ DÍLU: je nepovinné. Pokud je přiložené, použij ho k ověření správné části.
 3) POZNÁMKA PRACOVNÍKA: je rozhodující pro to, co se opravdu opravilo.
 
@@ -264,6 +265,8 @@ Důležitá pravidla:
 - Nepiš žádné nadpisy, odrážky, markdown ani **.
 - Nepoužívej kancelářská slova jako "provedena", "provozuschopnost", "zařízení obnovena", "doporučena objednávka".
 - Nezačínej "Dobrý den" a nepřidávej fráze typu "úkol splněn".
+- Čas hlášení v SAP vrať jako "notificationTime" ve formátu HH:mm. Například z "19.05.2026 03:21:23" vrať "03:21".
+- Pokud čas hlášení není čitelný, vrať prázdný řetězec.
 
 Správný styl příkladu:
 Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě nové.
@@ -273,7 +276,8 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
 Vrať POUZE validní JSON bez markdownu:
 {
   "descriptionCz": "jedna přirozená česká věta co bylo opraveno",
-  "technicalReport": "1 až 3 krátké obyčejné české věty bez nadpisů a bez markdownu"
+  "technicalReport": "1 až 3 krátké obyčejné české věty bez nadpisů a bez markdownu",
+  "notificationTime": "HH:mm nebo prázdné"
 }""".trimIndent()
 
         val content = mutableListOf<ContentPart>(ContentPart(type = "text", text = textPrompt))
@@ -302,7 +306,8 @@ Vrať POUZE validní JSON bez markdownu:
             val obj = JsonParser.parseString(jsonText).asJsonObject
             SapPhotoReportDraft(
                 descriptionCz = obj.get("descriptionCz")?.asString?.trim().orEmpty().ifBlank { repairNote },
-                technicalReport = cleanWorkerReport(obj.get("technicalReport")?.asString?.trim().orEmpty())
+                technicalReport = cleanWorkerReport(obj.get("technicalReport")?.asString?.trim().orEmpty()),
+                notificationTime = obj.get("notificationTime")?.asString?.trim().orEmpty()
             )
         } catch (_: Exception) {
             SapPhotoReportDraft(descriptionCz = raw.ifBlank { repairNote }, technicalReport = cleanWorkerReport(raw))

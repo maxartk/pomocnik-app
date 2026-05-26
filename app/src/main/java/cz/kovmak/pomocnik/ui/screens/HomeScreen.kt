@@ -31,6 +31,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -334,6 +335,69 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             onGallery = { detailGalleryLauncher.launch("image/*") },
                             onRemove = { viewModel.setDetailPhotoUri(null) }
                         )
+                    }
+                }
+            }
+        }
+
+        // ==================== WORK TIME ====================
+        if (formState.mode == "submit") {
+            Spacer(modifier = Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = DarkCard)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("🕐 Час роботи", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "Початок береться з фото SAP. Ти ставиш час, коли роботу виконав.",
+                        color = TextGray,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = formState.startTime,
+                            onValueChange = viewModel::updateStartTime,
+                            label = { Text("Початок SAP", fontSize = 12.sp) },
+                            placeholder = { Text("03:21", color = TextGray.copy(alpha = 0.4f)) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonOrange,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                cursorColor = NeonOrange
+                            )
+                        )
+                        OutlinedTextField(
+                            value = formState.endTime,
+                            onValueChange = viewModel::updateEndTime,
+                            label = { Text("Виконав", fontSize = 12.sp) },
+                            placeholder = { Text("10:04", color = TextGray.copy(alpha = 0.4f)) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = NeonBlue,
+                                unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
+                                focusedTextColor = TextWhite,
+                                unfocusedTextColor = TextWhite,
+                                cursorColor = NeonBlue
+                            )
+                        )
+                    }
+                    if (formState.hours > 0.0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Разом: ${String.format("%.2f", formState.hours)} h", color = NeonBlue, fontSize = 12.sp)
                     }
                 }
             }

@@ -128,6 +128,14 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         return h * 60 + m
     }
 
+    private fun normalizeTime(value: String): String {
+        val match = Regex("^(\\d{1,2}):(\\d{2})(?::\\d{2})?$").matchEntire(value.trim()) ?: return ""
+        val h = match.groupValues[1].toIntOrNull() ?: return ""
+        val m = match.groupValues[2].toIntOrNull() ?: return ""
+        if (h !in 0..23 || m !in 0..59) return ""
+        return "%02d:%02d".format(h, m)
+    }
+
     private fun calculateHours() {
         val s = _formState.value
         val start = parseMinutes(s.startTime) ?: return
@@ -247,6 +255,11 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 )
                 _translationResult.value = draft.descriptionCz
                 _technicalReport.value = draft.technicalReport
+                val sapStartTime = normalizeTime(draft.notificationTime)
+                if (sapStartTime.isNotBlank()) {
+                    _formState.update { it.copy(startTime = sapStartTime) }
+                    calculateHours()
+                }
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
                 _formState.update { it.copy(isTranslating = false, translationError = "Chyba zprávy z fotek: ${e.localizedMessage}") }
