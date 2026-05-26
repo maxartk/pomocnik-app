@@ -28,6 +28,7 @@ data class WorkFormState(
     val endTime: String = "",
     val hours: Double = 0.0,
     val photoUri: String? = null,
+    val detailPhotoUri: String? = null,
     val mode: String = "submit", // submit | advisor
     val isTranslating: Boolean = false,
     val translationError: String? = null,
@@ -102,6 +103,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun updateStartTime(time: String) { _formState.update { it.copy(startTime = time) }; calculateHours() }
     fun updateEndTime(time: String) { _formState.update { it.copy(endTime = time) }; calculateHours() }
     fun setPhotoUri(uri: String?) = _formState.update { it.copy(photoUri = uri) }
+    fun setDetailPhotoUri(uri: String?) = _formState.update { it.copy(detailPhotoUri = uri) }
     fun setMode(mode: String) = _formState.update { it.copy(mode = mode) }
 
     fun updateSapObjectPart(code: String) = _formState.update { it.copy(sapObjectPart = code) }
@@ -136,16 +138,15 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Converts a content:// or file:// URI to a base64 JPEG string.
-     * Scales down images larger than 1024px to reduce API payload.
+     * Scales down images to reduce API payload.
      */
-    private fun uriToBase64(uriString: String): String? {
+    private fun uriToBase64(uriString: String, maxSize: Int = 1024, quality: Int = 75): String? {
         return try {
             val uri = Uri.parse(uriString)
             val context = getApplication<Application>()
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val bitmap = BitmapFactory.decodeStream(inputStream).also { inputStream.close() } ?: return null
 
-            val maxSize = 1024
             val scaled = if (bitmap.width > maxSize || bitmap.height > maxSize) {
                 val scale = maxSize.toFloat() / maxOf(bitmap.width, bitmap.height)
                 Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
@@ -153,7 +154,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             } else bitmap
 
             val out = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.JPEG, 75, out)
+            scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
             scaled.recycle()
             Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
@@ -211,6 +212,44 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 android.util.Log.e("Pomocnik", "Advisor error: ${e.message}", e)
                 _formState.update { it.copy(isTranslating = false, translationError = "Помилка: ${e.localizedMessage ?: e.toString().take(100)}") }
+            }
+        }
+    }
+
+
+    /** Build a SAP-ready Czech report from SAP order photo, optional detail photo and worker note. */
+    fun generateReportFromPhotos(apiKey: String = apiKey()) {
+        val state = _formState.value
+        if (state.descriptionUa.isBlank()) {
+            _formState.update { it.copy(translationError = "Напиши коротко, як ти це виправив") }
+            return
+        }
+        if (state.photoUri.isNullOrBlank()) {
+            _formState.update { it.copy(translationError = "Додай фото заказки з SAP") }
+            return
+        }
+        if (apiKey.isBlank()) {
+            _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
+            return
+        }
+
+        _formState.update { it.copy(isTranslating = true, translationError = null) }
+        viewModelScope.launch {
+            try {
+                val orderImageBase64 = uriToBase64(state.photoUri, maxSize = 1600, quality = 85)
+                val detailImageBase64 = state.detailPhotoUri?.let { uriToBase64(it, maxSize = 1600, quality = 85) }
+                val draft = repository.generateReportFromSapPhotos(
+                    repairNote = state.descriptionUa,
+                    orderImageBase64 = orderImageBase64,
+                    detailImageBase64 = detailImageBase64,
+                    apiKey = apiKey,
+                    model = getModel()
+                )
+                _translationResult.value = draft.descriptionCz
+                _technicalReport.value = draft.technicalReport
+                _formState.update { it.copy(isTranslating = false) }
+            } catch (e: Exception) {
+                _formState.update { it.copy(isTranslating = false, translationError = "Chyba zprávy z fotek: ${e.localizedMessage}") }
             }
         }
     }
@@ -323,7 +362,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     startTime = state.startTime,
                     endTime = state.endTime,
                     hours = state.hours,
-                    photoUri = state.photoUri,
+                    photoUri = state.photoUri ?: state.detailPhotoUri,
                     userName = profile?.name ?: "",
                     userEmail = profile?.email ?: "",
                     sapObjectPart = sapFields.objectPart,

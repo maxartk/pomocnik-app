@@ -12,10 +12,18 @@ import cz.kovmak.pomocnik.data.model.SapFieldParser
 import cz.kovmak.pomocnik.data.model.SapFieldResult
 import cz.kovmak.pomocnik.data.network.ModelConfig
 import cz.kovmak.pomocnik.BuildConfig
+import com.google.gson.JsonParser
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+
+
+data class SapPhotoReportDraft(
+    val descriptionCz: String,
+    val technicalReport: String
+)
 
 class WorkRepository(
     private val dao: WorkEntryDao,
@@ -200,6 +208,80 @@ Formát:
 
         val response = dynamicApi.translate(request)
         response.choices.firstOrNull()?.message?.content?.trim() ?: ""
+    }
+
+
+    /**
+     * Compose a Czech SAP work report from the SAP order photo, optional real part photo,
+     * and worker's Ukrainian/Czech repair note. The worker note and detail photo are authoritative
+     * when SAP/master text names the wrong component.
+     */
+    suspend fun generateReportFromSapPhotos(
+        repairNote: String,
+        orderImageBase64: String?,
+        detailImageBase64: String?,
+        apiKey: String,
+        model: String = ModelConfig.VISION_MODEL
+    ): SapPhotoReportDraft = withContext(Dispatchers.IO) {
+        val dynamicApi = OpenRouterApi.create(apiKey)
+        val chosenModel = if (orderImageBase64 != null || detailImageBase64 != null) ModelConfig.VISION_MODEL else model
+
+        val systemPrompt = """Jsi zkušený technik průmyslové údržby v SAP PM.
+Umíš číst fotky hlášení/zakázky ze SAP a z krátké poznámky pracovníka napsat stručný český pracovní report.
+Nepoužívej robotický ani přehnaně formální styl. Zachovej technický význam přesně.""".trimIndent()
+
+        val textPrompt = """Vytvoř výstup pro pracovní hlášení podle těchto vstupů:
+1) FOTO SAP ZAKÁZKY/HLÁŠENÍ: přečti číslo zakázky, technické místo a původní závadu, pokud jsou vidět.
+2) FOTO SKUTEČNÉ DÍLU: je nepovinné. Pokud je přiložené, použij ho k ověření správné části.
+3) POZNÁMKA PRACOVNÍKA: je rozhodující pro to, co se opravdu opravilo.
+
+Poznámka pracovníka:
+$repairNote
+
+Důležitá pravidla:
+- Pokud SAP nebo mistr určil díl špatně, oprav to podle poznámky pracovníka a/nebo fotky dílu.
+- Například když SAP píše "trn", ale pracovník píše nebo fotka ukazuje "spojka", napiš spojku, ne trn.
+- Nehádej neviditelné údaje. Když něco není jisté, napiš obecněji.
+- Výsledkem má být krátký český text použitelný do SAP/hlášení po opravě.
+- Nezačínej "Dobrý den" a nepřidávej fráze typu "úkol splněn".
+
+Vrať POUZE validní JSON bez markdownu:
+{
+  "descriptionCz": "jedna přirozená česká věta co bylo opraveno",
+  "technicalReport": "**SOUHRN:** ...\n**TECHNICKÉ DETAILY:**\n• ...\n**ZÁVĚR:** ..."
+}""".trimIndent()
+
+        val content = mutableListOf<ContentPart>(ContentPart(type = "text", text = textPrompt))
+        orderImageBase64?.let {
+            content += ContentPart(type = "text", text = "Foto 1: SAP zakázka / hlášení")
+            content += ContentPart(type = "image_url", image_url = ImageUrl(url = "data:image/jpeg;base64,$it"))
+        }
+        detailImageBase64?.let {
+            content += ContentPart(type = "text", text = "Foto 2: skutečný díl / detail závady (nepovinné, ale má přednost pro určení dílu)")
+            content += ContentPart(type = "image_url", image_url = ImageUrl(url = "data:image/jpeg;base64,$it"))
+        }
+
+        val request = TranslationRequest(
+            model = chosenModel,
+            messages = listOf(
+                Message(role = "system", content = systemPrompt),
+                Message(role = "user", content = content)
+            ),
+            temperature = 0.2,
+            max_tokens = 900
+        )
+
+        val raw = dynamicApi.translate(request).choices.firstOrNull()?.message?.content?.trim().orEmpty()
+        val jsonText = raw.removePrefix("```json").removePrefix("```").removeSuffix("```").trim()
+        return@withContext try {
+            val obj = JsonParser.parseString(jsonText).asJsonObject
+            SapPhotoReportDraft(
+                descriptionCz = obj.get("descriptionCz")?.asString?.trim().orEmpty().ifBlank { repairNote },
+                technicalReport = obj.get("technicalReport")?.asString?.trim().orEmpty()
+            )
+        } catch (_: Exception) {
+            SapPhotoReportDraft(descriptionCz = raw.ifBlank { repairNote }, technicalReport = raw)
+        }
     }
 
     /**

@@ -67,28 +67,44 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? -> uri?.let { viewModel.setPhotoUri(it.toString()) } }
+    val detailGalleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? -> uri?.let { viewModel.setDetailPhotoUri(it.toString()) } }
 
-    // Camera launcher
+    // Camera launcher. Target: main SAP/problem photo or optional detail photo.
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraTarget by remember { mutableStateOf("main") }
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success: Boolean ->
         if (success && cameraImageUri != null) {
-            viewModel.setPhotoUri(cameraImageUri.toString())
+            if (cameraTarget == "detail") viewModel.setDetailPhotoUri(cameraImageUri.toString())
+            else viewModel.setPhotoUri(cameraImageUri.toString())
         }
     }
 
     // Auto-launch camera after permission is granted
     var launchCameraAfterPermission by remember { mutableStateOf(false) }
-    LaunchedEffect(permissionsState.allPermissionsGranted) {
-        if (launchCameraAfterPermission && permissionsState.allPermissionsGranted) {
-            launchCameraAfterPermission = false
+
+    fun launchCamera(target: String) {
+        cameraTarget = target
+        if (!permissionsState.allPermissionsGranted) {
+            launchCameraAfterPermission = true
+            permissionsState.launchMultiplePermissionRequest()
+        } else {
             val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
                 it.parentFile?.mkdirs()
             }
             val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
             cameraImageUri = uri
             cameraLauncher.launch(uri)
+        }
+    }
+
+    LaunchedEffect(permissionsState.allPermissionsGranted) {
+        if (launchCameraAfterPermission && permissionsState.allPermissionsGranted) {
+            launchCameraAfterPermission = false
+            launchCamera(cameraTarget)
         }
     }
 
@@ -272,91 +288,45 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
             }
         }
 
-        // ==================== PHOTO DISPLAY + CAMERA (ADVISOR MODE) ====================
-        if (formState.mode == "advisor") {
+        // ==================== PHOTO DISPLAY + CAMERA ====================
+        if (formState.mode == "advisor" || formState.mode == "submit") {
             Spacer(modifier = Modifier.height(16.dp))
-            
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = DarkCard)
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("📷 Фото проблеми", color = NeonBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (formState.photoUri != null) {
-                        // Photo thumbnail with remove button
-                        Box(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            AsyncImage(
-                                model = formState.photoUri,
-                                contentDescription = "Фото",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(200.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Crop
-                            )
-                            // Remove button overlay
-                            IconButton(
-                                onClick = { viewModel.setPhotoUri(null) },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(4.dp)
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.6f))
-                            ) {
-                                Icon(Icons.Filled.Close, "Видалити", tint = Color.White, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("✅ Фото прикріплено", color = NeonBlue, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    if (formState.mode == "advisor") {
+                        PhotoPickerBlock(
+                            label = "📷 Фото проблеми",
+                            hint = "Прикріпи фото — AI побачить проблему",
+                            uri = formState.photoUri,
+                            accent = NeonBlue,
+                            onCamera = { launchCamera("main") },
+                            onGallery = { galleryLauncher.launch("image/*") },
+                            onRemove = { viewModel.setPhotoUri(null) }
+                        )
                     } else {
-                        // Buttons to add photo
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Camera button — request permission first
-                            OutlinedButton(
-                                onClick = {
-                                    if (!permissionsState.allPermissionsGranted) {
-                                        launchCameraAfterPermission = true
-                                        permissionsState.launchMultiplePermissionRequest()
-                                    } else {
-                                        val photoFile = File(context.cacheDir, "camera/photo_${System.currentTimeMillis()}.jpg").also {
-                                            it.parentFile?.mkdirs()
-                                        }
-                                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
-                                        cameraImageUri = uri
-                                        cameraLauncher.launch(uri)
-                                    }
-                                },
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue)
-                            ) {
-                                Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Камера", fontSize = 13.sp)
-                            }
-                            // Gallery button
-                            OutlinedButton(
-                                onClick = { galleryLauncher.launch("image/*") },
-                                modifier = Modifier.weight(1f).height(48.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
-                            ) {
-                                Icon(Icons.Outlined.Image, null, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Галерея", fontSize = 13.sp)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Прикріпи фото — AI побачить проблему", color = TextGray.copy(alpha = 0.5f), fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                        PhotoPickerBlock(
+                            label = "📋 Фото заказки SAP",
+                            hint = "Сфоткай hlášení/zakázku в SAP — AI прочитає, що там написано",
+                            uri = formState.photoUri,
+                            accent = NeonOrange,
+                            onCamera = { launchCamera("main") },
+                            onGallery = { galleryLauncher.launch("image/*") },
+                            onRemove = { viewModel.setPhotoUri(null) }
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        PhotoPickerBlock(
+                            label = "🔩 Фото деталі (необовʼязково)",
+                            hint = "Додай тільки коли сумніваєшся або mistr/SAP міг назвати деталь неправильно",
+                            uri = formState.detailPhotoUri,
+                            accent = NeonBlue,
+                            onCamera = { launchCamera("detail") },
+                            onGallery = { detailGalleryLauncher.launch("image/*") },
+                            onRemove = { viewModel.setDetailPhotoUri(null) }
+                        )
                     }
                 }
             }
@@ -406,7 +376,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text("Перекладаю...", color = Color.White, fontWeight = FontWeight.SemiBold)
+                                Text("Працюю...", color = Color.White, fontWeight = FontWeight.SemiBold)
                             }
                         } else {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -416,6 +386,19 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                             }
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { viewModel.generateReportFromPhotos(apiKey) },
+                    enabled = !formState.isTranslating && apiKey.isNotEmpty() && formState.photoUri != null,
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonBlue)
+                ) {
+                    Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("СКЛАСТИ ЗВІТ З ФОТО SAP", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
             }
         }
@@ -668,7 +651,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         colors = CardDefaults.cardColors(containerColor = DarkSurface)
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
-                            Text("📋 Технічна зправа (SAP IW41)", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("📋 Технічна справа (SAP IW41)", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(text = text, color = TextWhite, fontSize = 14.sp, lineHeight = 22.sp)
                         }
@@ -822,6 +805,75 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Composable
+private fun PhotoPickerBlock(
+    label: String,
+    hint: String,
+    uri: String?,
+    accent: Color,
+    onCamera: () -> Unit,
+    onGallery: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Text(label, color = accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    Spacer(modifier = Modifier.height(10.dp))
+
+    if (uri != null) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            AsyncImage(
+                model = uri,
+                contentDescription = label,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(170.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.6f))
+            ) {
+                Icon(Icons.Filled.Close, "Видалити", tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text("✅ Фото прикріплено", color = accent, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = onCamera,
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)
+            ) {
+                Icon(Icons.Filled.CameraAlt, null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Камера", fontSize = 13.sp)
+            }
+            OutlinedButton(
+                onClick = onGallery,
+                modifier = Modifier.weight(1f).height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonOrange)
+            ) {
+                Icon(Icons.Outlined.Image, null, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Галерея", fontSize = 13.sp)
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(hint, color = TextGray.copy(alpha = 0.5f), fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
 }
 
