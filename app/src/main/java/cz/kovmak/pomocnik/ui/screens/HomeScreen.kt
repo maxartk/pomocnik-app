@@ -7,6 +7,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -21,7 +24,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -29,6 +34,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -818,10 +825,20 @@ private fun PhotoPickerBlock(
     onGallery: () -> Unit,
     onRemove: () -> Unit
 ) {
+    var showPreview by remember { mutableStateOf(false) }
+
     Text(label, color = accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     Spacer(modifier = Modifier.height(10.dp))
 
     if (uri != null) {
+        if (showPreview) {
+            PhotoPreviewDialog(
+                uri = uri,
+                label = label,
+                onDismiss = { showPreview = false }
+            )
+        }
+
         Box(modifier = Modifier.fillMaxWidth()) {
             AsyncImage(
                 model = uri,
@@ -829,7 +846,8 @@ private fun PhotoPickerBlock(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(170.dp)
-                    .clip(RoundedCornerShape(12.dp)),
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { showPreview = true },
                 contentScale = ContentScale.Crop
             )
             IconButton(
@@ -845,7 +863,13 @@ private fun PhotoPickerBlock(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text("✅ Фото прикріплено", color = accent, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        Text(
+            "✅ Фото прикріплено — натисни на фото, щоб збільшити",
+            color = accent,
+            fontSize = 12.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     } else {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -874,6 +898,71 @@ private fun PhotoPickerBlock(
         }
         Spacer(modifier = Modifier.height(8.dp))
         Text(hint, color = TextGray.copy(alpha = 0.5f), fontSize = 11.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun PhotoPreviewDialog(
+    uri: String,
+    label: String,
+    onDismiss: () -> Unit
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        scale = (scale * zoomChange).coerceIn(1f, 5f)
+        offset = if (scale > 1f) offset + panChange else Offset.Zero
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = uri,
+                contentDescription = label,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        translationX = offset.x
+                        translationY = offset.y
+                    }
+                    .transformable(transformState),
+                contentScale = ContentScale.Fit
+            )
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.65f))
+            ) {
+                Icon(Icons.Filled.Close, "Закрити", tint = Color.White)
+            }
+
+            Text(
+                text = "Розтягни двома пальцями, щоб збільшити",
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            )
+        }
     }
 }
 
