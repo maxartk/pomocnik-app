@@ -651,7 +651,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         colors = CardDefaults.cardColors(containerColor = DarkSurface)
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
-                            Text("📋 Технічна справа (SAP IW41)", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text("📋 Запис для SAP", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(text = text, color = TextWhite, fontSize = 14.sp, lineHeight = 22.sp)
                         }
@@ -696,7 +696,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         append("🇺🇦 UA:\n${s.descriptionUa}\n\n")
                         append("🇨🇿 CZ:\n$translation\n")
                         if (report.isNotEmpty()) {
-                            append("\n📋 Technická zpráva:\n$report\n")
+                            append("\n📋 Zápis pro SAP:\n$report\n")
                         }
                         // SAP fields
                         if (s.sapObjectPart.isNotEmpty() || s.sapDamageDesc.isNotEmpty()) {

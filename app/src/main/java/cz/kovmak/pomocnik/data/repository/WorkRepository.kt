@@ -30,6 +30,18 @@ class WorkRepository(
     private val api: OpenRouterApi
 ) {
 
+    private fun cleanWorkerReport(text: String): String {
+        return text
+            .replace(Regex("\\*\\*(SOUHRN|TECHNICKÉ DETAILY|ZÁVĚR):\\*\\*", RegexOption.IGNORE_CASE), "")
+            .replace("**", "")
+            .lines()
+            .map { line -> line.trim().removePrefix("•").trim() }
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
+
     fun getAllEntries(): Flow<List<WorkEntry>> = dao.getAllEntries()
     fun searchEntries(query: String): Flow<List<WorkEntry>> = dao.searchEntries(query)
     fun getRecentEntries(limit: Int = 20): Flow<List<WorkEntry>> = dao.getRecentEntries(limit)
@@ -105,10 +117,10 @@ Pravidla:
             else -> "Elektrická + Mechanická"
         }
 
-        val systemPrompt = "Jsi zkušený průmyslový elektrikář/mechanik. " +
-            "Píšeš stručné technické zprávy pro SAP systém. Formální styl, odborná terminologie."
+        val systemPrompt = "Jsi zkušený elektrikář z údržby. " +
+            "Píšeš krátce a obyčejně, jako pracovník na dílně, ne jako kancelář nebo inženýr."
 
-        val userPrompt = """Vytvoř stručnou technickou zprávu pro SAP IW41.
+        val userPrompt = """Vytvoř krátký zápis práce pro SAP IW41.
 
 Popis CZ: $descriptionCz
 Popis UA: $descriptionUa
@@ -117,11 +129,16 @@ Typ práce: $workTypeLabel
 Čas: $startTime - $endTime ($hours h)
 Materiály: $materials
 
-Formát:
-**SOUHRN:** [1-2 věty]
-**TECHNICKÉ DETAILY:**
-• [krok/popis]
-**ZÁVĚR:** [výsledek práce]"""
+Styl:
+- 1 až 3 krátké české věty
+- jednoduchá řeč elektrikáře z údržby
+- bez nadpisů, bez odrážek, bez markdownu, bez **
+- nepiš slova jako "provedena", "provozuschopnost", "zařízení obnovena", "technické detaily"
+- klidně piš normálně: "Vyměnili jsme...", "Zavařili jsme...", "Po výměně zkouška OK."
+- pokud je potřeba objednat díl, napiš to jednoduše
+
+Příklad stylu:
+Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě nové."""
 
         val request = TranslationRequest(
             model = model,
@@ -134,7 +151,7 @@ Formát:
         )
 
         val response = dynamicApi.translate(request)
-        response.choices.firstOrNull()?.message?.content?.trim() ?: ""
+        cleanWorkerReport(response.choices.firstOrNull()?.message?.content?.trim() ?: "")
     }
 
     /**
@@ -227,8 +244,8 @@ Formát:
         val chosenModel = if (orderImageBase64 != null || detailImageBase64 != null) ModelConfig.VISION_MODEL else model
 
         val systemPrompt = """Jsi zkušený technik průmyslové údržby v SAP PM.
-Umíš číst fotky hlášení/zakázky ze SAP a z krátké poznámky pracovníka napsat stručný český pracovní report.
-Nepoužívej robotický ani přehnaně formální styl. Zachovej technický význam přesně.""".trimIndent()
+Umíš číst fotky hlášení/zakázky ze SAP a z krátké poznámky pracovníka napsat jednoduchý český zápis práce.
+Piš jako normální elektrikář z údržby, ne jako kancelář nebo inženýr. Zachovej technický význam přesně.""".trimIndent()
 
         val textPrompt = """Vytvoř výstup pro pracovní hlášení podle těchto vstupů:
 1) FOTO SAP ZAKÁZKY/HLÁŠENÍ: přečti číslo zakázky, technické místo a původní závadu, pokud jsou vidět.
@@ -243,12 +260,20 @@ Důležitá pravidla:
 - Například když SAP píše "trn", ale pracovník píše nebo fotka ukazuje "spojka", napiš spojku, ne trn.
 - Nehádej neviditelné údaje. Když něco není jisté, napiš obecněji.
 - Výsledkem má být krátký český text použitelný do SAP/hlášení po opravě.
+- Piš jednoduše: co jsme udělali, co jsme vyměnili/opravili, případně co se má objednat.
+- Nepiš žádné nadpisy, odrážky, markdown ani **.
+- Nepoužívej kancelářská slova jako "provedena", "provozuschopnost", "zařízení obnovena", "doporučena objednávka".
 - Nezačínej "Dobrý den" a nepřidávej fráze typu "úkol splněn".
+
+Správný styl příkladu:
+Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě nové.
+
+Špatný styl: nadpisy, markdown a kancelářské věty.
 
 Vrať POUZE validní JSON bez markdownu:
 {
   "descriptionCz": "jedna přirozená česká věta co bylo opraveno",
-  "technicalReport": "**SOUHRN:** ...\n**TECHNICKÉ DETAILY:**\n• ...\n**ZÁVĚR:** ..."
+  "technicalReport": "1 až 3 krátké obyčejné české věty bez nadpisů a bez markdownu"
 }""".trimIndent()
 
         val content = mutableListOf<ContentPart>(ContentPart(type = "text", text = textPrompt))
@@ -277,10 +302,10 @@ Vrať POUZE validní JSON bez markdownu:
             val obj = JsonParser.parseString(jsonText).asJsonObject
             SapPhotoReportDraft(
                 descriptionCz = obj.get("descriptionCz")?.asString?.trim().orEmpty().ifBlank { repairNote },
-                technicalReport = obj.get("technicalReport")?.asString?.trim().orEmpty()
+                technicalReport = cleanWorkerReport(obj.get("technicalReport")?.asString?.trim().orEmpty())
             )
         } catch (_: Exception) {
-            SapPhotoReportDraft(descriptionCz = raw.ifBlank { repairNote }, technicalReport = raw)
+            SapPhotoReportDraft(descriptionCz = raw.ifBlank { repairNote }, technicalReport = cleanWorkerReport(raw))
         }
     }
 

@@ -317,7 +317,7 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
                     // Technical report
                     if (entry.technicalReport.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(16.dp))
-                        SectionHeader("📋 Technická zpráva")
+                        SectionHeader("📋 Zápis pro SAP")
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(12.dp),
@@ -559,7 +559,7 @@ private fun shareAllEntries(context: android.content.Context, entries: List<Work
 
 private fun shareEntry(context: android.content.Context, entry: WorkEntry) {
     val reportSection = if (entry.technicalReport.isNotEmpty()) {
-        "\n\n📋 Technická zpráva:\n${entry.technicalReport}"
+        "\n\n📋 Zápis pro SAP:\n${entry.technicalReport}"
     } else ""
     val sapSection = if (entry.sapObjectPart.isNotEmpty() || entry.sapDamageDesc.isNotEmpty()) {
         val sb = StringBuilder("\n\n🔧 SAP PM:")
