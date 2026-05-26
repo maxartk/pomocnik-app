@@ -30,7 +30,8 @@ data class Message(
 data class TranslationRequest(
     val model: String = "google/gemini-2.0-flash-001",
     val messages: List<Message>,
-    val temperature: Double = 0.3
+    val temperature: Double = 0.3,
+    val max_tokens: Int = 1024
 )
 
 data class TranslationResponse(

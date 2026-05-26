@@ -14,6 +14,7 @@ import cz.kovmak.pomocnik.data.settings.UserProfile
 import cz.kovmak.pomocnik.data.network.ModelConfig
 import cz.kovmak.pomocnik.data.network.OpenRouterApi
 import cz.kovmak.pomocnik.data.model.SapFieldResult
+import cz.kovmak.pomocnik.BuildConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
@@ -195,8 +196,10 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
         val imageBase64 = _formState.value.photoUri?.let { uri ->
             uriToBase64(uri).also { result ->
-                if (result == null) android.util.Log.e("Pomocnik", "Failed to convert photo: $uri")
-                else android.util.Log.d("Pomocnik", "Photo base64 size=${result.length}")
+                if (BuildConfig.DEBUG) {
+                    if (result == null) android.util.Log.e("Pomocnik", "Failed to convert photo")
+                    else android.util.Log.d("Pomocnik", "Photo base64 size=${result.length}")
+                }
             }
         }
 

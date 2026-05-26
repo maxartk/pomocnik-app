@@ -20,6 +20,7 @@ import cz.kovmak.pomocnik.data.network.OpenRouterApi
 import cz.kovmak.pomocnik.data.network.TranslationRequest
 import cz.kovmak.pomocnik.data.settings.SettingsRepository
 import cz.kovmak.pomocnik.data.settings.UserProfile
+import cz.kovmak.pomocnik.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -217,7 +218,8 @@ Rules:
                     )
                 )
             ),
-            temperature = 0.0
+            temperature = 0.0,
+            max_tokens = 768
         )
         val raw = api.translate(request).choices.firstOrNull()?.message?.content?.trim().orEmpty()
         parseShiftJson(raw)
@@ -310,21 +312,25 @@ Rules:
             val inputStream = context.contentResolver.openInputStream(uri) ?: return null
             val bitmap = BitmapFactory.decodeStream(inputStream) ?: return null
             inputStream.close()
-            val maxSize = 2200
+            // Schedule screenshots contain small text; keep more detail than regular work photos
+            // while still reducing payload size for vision requests.
+            val maxSize = 1600
             val outputStream = ByteArrayOutputStream()
             if (bitmap.width > maxSize || bitmap.height > maxSize) {
                 val scale = maxSize.toFloat() / maxOf(bitmap.width, bitmap.height)
                 val scaled = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
                 bitmap.recycle()
-                scaled.compress(Bitmap.CompressFormat.JPEG, 88, outputStream)
+                scaled.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
                 scaled.recycle()
             } else {
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 88, outputStream)
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 85, outputStream)
                 bitmap.recycle()
             }
             Base64.encodeToString(outputStream.toByteArray(), Base64.NO_WRAP)
         } catch (e: Exception) {
-            android.util.Log.e("Pomocnik", "schedule uriToBase64 failed: ${e.message}", e)
+            if (BuildConfig.DEBUG) {
+                android.util.Log.e("Pomocnik", "schedule uriToBase64 failed: ${e.message}", e)
+            }
             null
         }
     }

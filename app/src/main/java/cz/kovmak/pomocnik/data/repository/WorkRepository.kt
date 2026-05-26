@@ -11,6 +11,7 @@ import cz.kovmak.pomocnik.data.model.SapCatalogs
 import cz.kovmak.pomocnik.data.model.SapFieldParser
 import cz.kovmak.pomocnik.data.model.SapFieldResult
 import cz.kovmak.pomocnik.data.network.ModelConfig
+import cz.kovmak.pomocnik.BuildConfig
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.Dispatchers
@@ -65,7 +66,8 @@ Pravidla:
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)
             ),
-            temperature = 0.3
+            temperature = 0.3,
+            max_tokens = 512
         )
 
         val response = dynamicApi.translate(request)
@@ -119,7 +121,8 @@ Formát:
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)
             ),
-            temperature = 0.3
+            temperature = 0.3,
+            max_tokens = 768
         )
 
         val response = dynamicApi.translate(request)
@@ -191,7 +194,8 @@ Formát:
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userContent)
             ),
-            temperature = 0.4
+            temperature = 0.4,
+            max_tokens = 1024
         )
 
         val response = dynamicApi.translate(request)
@@ -246,13 +250,16 @@ Vrať POUZE tento JSON, nic jiného:
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)
             ),
-            temperature = 0.2
+            temperature = 0.2,
+            max_tokens = 512
         )
 
         val response = dynamicApi.translate(request)
         val rawContent = response.choices.firstOrNull()?.message?.content?.trim() ?: "{}"
         val result = SapFieldParser.parse(rawContent)
-        android.util.Log.d("Pomocnik", "SAP fields extracted from raw='$rawContent' => $result")
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d("Pomocnik", "SAP fields extracted from raw='$rawContent' => $result")
+        }
         return@withContext result
     }
 
@@ -282,7 +289,8 @@ NIC DALŠÍHO nepřidávej - pouze JSON."""
                 Message(role = "system", content = systemPrompt),
                 Message(role = "user", content = userPrompt)
             ),
-            temperature = 0.1
+            temperature = 0.1,
+            max_tokens = 256
         )
 
         val response = dynamicApi.translate(request)
