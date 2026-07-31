@@ -14,6 +14,8 @@ import cz.kovmak.pomocnik.data.settings.UserProfile
 import cz.kovmak.pomocnik.data.network.ModelConfig
 import cz.kovmak.pomocnik.data.network.OpenRouterApi
 import cz.kovmak.pomocnik.data.model.SapFieldResult
+import cz.kovmak.pomocnik.data.model.SapNotificationData
+import cz.kovmak.pomocnik.data.model.SapDurationCalculator
 import cz.kovmak.pomocnik.BuildConfig
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -26,9 +28,12 @@ data class WorkFormState(
     val materials: String = "",
     val startTime: String = "",
     val endTime: String = "",
+    val endDate: String = "",
+    val endDateManuallyEdited: Boolean = false,
     val hours: Double = 0.0,
     val photoUri: String? = null,
     val detailPhotoUri: String? = null,
+    val notification: SapNotificationData = SapNotificationData(),
     val mode: String = "submit", // submit | advisor
     val isTranslating: Boolean = false,
     val translationError: String? = null,
@@ -42,7 +47,9 @@ data class WorkFormState(
     val sapCause: String = "",
     val sapCauseText: String = "",
     val sapImpact: String = "",
-    val isAutoFilling: Boolean = false
+    val isAutoFilling: Boolean = false,
+    val notificationConfirmed: Boolean = false,
+    val isReadingPhoto: Boolean = false
 )
 
 class WorkViewModel(application: Application) : AndroidViewModel(application) {
@@ -83,11 +90,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             userProfile.collect { profile ->
                 profile?.let {
                     _formState.update { state ->
-                        state.copy(
-                            workType = state.workType.ifBlank { profile.defaultWorkType }.ifBlank { "E" },
-                            startTime = state.startTime.ifBlank { profile.defaultStartTime }.ifBlank { "07:00" },
-                            endTime = state.endTime.ifBlank { profile.defaultEndTime }.ifBlank { "15:30" }
-                        )
+                        state.copy(workType = state.workType.ifBlank { profile.defaultWorkType }.ifBlank { "E" })
                     }
                 }
             }
@@ -96,14 +99,73 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── Form field updates ────────────────────────────────────────────────────
 
-    fun updateOrderId(orderId: String) = _formState.update { it.copy(orderId = orderId) }
+    fun updateOrderId(orderId: String) {
+        _formState.update {
+            it.copy(orderId = orderId, notification = it.notification.copy(orderId = orderId), notificationConfirmed = false)
+        }
+        invalidateGeneratedResults()
+    }
     fun updateWorkType(workType: String) = _formState.update { it.copy(workType = workType) }
-    fun updateDescriptionUa(desc: String) = _formState.update { it.copy(descriptionUa = desc) }
+    fun updateDescriptionUa(desc: String) {
+        _formState.update { it.copy(descriptionUa = desc) }
+        invalidateGeneratedResults()
+    }
     fun updateMaterials(materials: String) = _formState.update { it.copy(materials = materials) }
-    fun updateStartTime(time: String) { _formState.update { it.copy(startTime = time) }; calculateHours() }
-    fun updateEndTime(time: String) { _formState.update { it.copy(endTime = time) }; calculateHours() }
-    fun setPhotoUri(uri: String?) = _formState.update { it.copy(photoUri = uri) }
-    fun setDetailPhotoUri(uri: String?) = _formState.update { it.copy(detailPhotoUri = uri) }
+    fun updateStartTime(time: String) {
+        _formState.update { state ->
+            val resolvedEndDate = SapDurationCalculator.resolveEndDate(
+                state.notification.notificationDate,
+                time,
+                state.endTime,
+                state.endDate,
+                state.endDateManuallyEdited
+            )
+            state.copy(
+                startTime = time,
+                notification = state.notification.copy(notificationTime = time),
+                notificationConfirmed = false,
+                endDate = resolvedEndDate
+            )
+        }
+        invalidateGeneratedResults()
+        calculateHours()
+    }
+    fun updateEndTime(time: String) {
+        _formState.update { state ->
+            val resolvedEndDate = SapDurationCalculator.resolveEndDate(
+                state.notification.notificationDate,
+                state.startTime,
+                time,
+                state.endDate,
+                state.endDateManuallyEdited
+            )
+            state.copy(endTime = time, endDate = resolvedEndDate)
+        }
+        calculateHours()
+    }
+    fun updateEndDate(date: String) {
+        _formState.update { it.copy(endDate = date, endDateManuallyEdited = true) }
+        calculateHours()
+    }
+    fun setPhotoUri(uri: String?) {
+        _formState.update {
+            it.copy(
+                photoUri = uri,
+                notification = SapNotificationData(),
+                notificationConfirmed = false,
+                orderId = "",
+                startTime = "",
+                endDate = "",
+                endDateManuallyEdited = false,
+                hours = 0.0
+            )
+        }
+        invalidateGeneratedResults()
+    }
+    fun setDetailPhotoUri(uri: String?) {
+        _formState.update { it.copy(detailPhotoUri = uri) }
+        invalidateGeneratedResults()
+    }
     fun setMode(mode: String) = _formState.update { it.copy(mode = mode) }
 
     fun updateSapObjectPart(code: String) = _formState.update { it.copy(sapObjectPart = code) }
@@ -112,7 +174,101 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun updateSapCause(code: String) = _formState.update { it.copy(sapCause = code) }
     fun updateSapCauseText(text: String) = _formState.update { it.copy(sapCauseText = text) }
     fun updateSapImpact(code: String) = _formState.update { it.copy(sapImpact = code) }
+    fun updateNotificationDate(value: String) {
+        _formState.update { state ->
+            val resolvedEndDate = SapDurationCalculator.resolveEndDate(
+                value,
+                state.startTime,
+                state.endTime,
+                state.endDate,
+                state.endDateManuallyEdited
+            )
+            state.copy(
+                notification = state.notification.copy(notificationDate = value),
+                notificationConfirmed = false,
+                endDate = resolvedEndDate
+            )
+        }
+        invalidateGeneratedResults()
+        calculateHours()
+    }
+    fun updateNotificationAuthor(value: String) {
+        _formState.update { it.copy(notification = it.notification.copy(author = value), notificationConfirmed = false) }
+        invalidateGeneratedResults()
+    }
+    fun updateTechnicalLocation(value: String) {
+        _formState.update { it.copy(notification = it.notification.copy(technicalLocation = value), notificationConfirmed = false) }
+        invalidateGeneratedResults()
+    }
+    fun updateNotificationText(value: String) {
+        _formState.update { it.copy(notification = it.notification.copy(notificationText = value), notificationConfirmed = false) }
+        invalidateGeneratedResults()
+    }
+    fun updateNotificationPriority(value: String) {
+        _formState.update { it.copy(notification = it.notification.copy(priority = value), notificationConfirmed = false) }
+        invalidateGeneratedResults()
+    }
+
+    fun confirmNotification() {
+        val state = _formState.value
+        when {
+            state.orderId.isBlank() || state.notification.notificationText.isBlank() ->
+                _formState.update { it.copy(translationError = "Перевір номер заказки та текст hlášení") }
+            !SapDurationCalculator.isValidDate(state.notification.notificationDate) ->
+                _formState.update { it.copy(translationError = "Некоректна дата hlášení") }
+            !SapDurationCalculator.isValidTime(state.startTime) ->
+                _formState.update { it.copy(translationError = "Некоректний час hlášení") }
+            else -> _formState.update { it.copy(notificationConfirmed = true, translationError = null) }
+        }
+    }
     fun resetError() = _formState.update { it.copy(translationError = null, saveSuccess = false) }
+
+    private fun invalidateGeneratedResults() {
+        _translationResult.value = null
+        _technicalReport.value = null
+        _formState.update {
+            it.copy(
+                sapObjectPart = "",
+                sapDamageDesc = "",
+                sapDamageText = "",
+                sapCause = "",
+                sapCauseText = "",
+                sapImpact = ""
+            )
+        }
+    }
+
+    fun loadEntry(entry: WorkEntry) {
+        _formState.value = WorkFormState(
+            orderId = entry.orderId,
+            workType = entry.workType,
+            descriptionUa = entry.descriptionUa,
+            materials = entry.materials,
+            startTime = entry.startTime,
+            endTime = entry.endTime,
+            endDate = entry.sapFailureEndDate.ifBlank { entry.sapNotificationDate },
+            endDateManuallyEdited = true,
+            hours = entry.hours,
+            notification = SapNotificationData(
+                orderId = entry.orderId,
+                technicalLocation = entry.sapTechnicalLocation,
+                notificationText = entry.sapNotificationText,
+                author = entry.sapNotificationAuthor,
+                notificationDate = entry.sapNotificationDate,
+                notificationTime = entry.startTime,
+                priority = entry.sapPriority
+            ),
+            sapObjectPart = entry.sapObjectPart,
+            sapDamageDesc = entry.sapDamageDesc,
+            sapDamageText = entry.sapDamageText,
+            sapCause = entry.sapCause,
+            sapCauseText = entry.sapCauseText,
+            sapImpact = entry.sapImpact,
+            notificationConfirmed = entry.sapNotificationText.isNotBlank()
+        )
+        _translationResult.value = entry.descriptionCz.ifBlank { null }
+        _technicalReport.value = entry.technicalReport.ifBlank { null }
+    }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -138,10 +294,13 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun calculateHours() {
         val s = _formState.value
-        val start = parseMinutes(s.startTime) ?: return
-        val end = parseMinutes(s.endTime) ?: return
-        val diff = if (end >= start) end - start else (24 * 60 - start) + end
-        _formState.update { it.copy(hours = diff / 60.0) }
+        val calculated = SapDurationCalculator.hours(
+            s.notification.notificationDate,
+            s.startTime,
+            s.endDate,
+            s.endTime
+        )
+        _formState.update { it.copy(hours = calculated) }
     }
 
     /**
@@ -172,6 +331,53 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // ── API actions ──────────────────────────────────────────────────────────
+
+    /** First step: OCR the SAP screenshot and prefill reviewed notification context. */
+    fun readSapNotification(apiKey: String = apiKey()) {
+        val photoUri = _formState.value.photoUri
+        if (photoUri.isNullOrBlank()) {
+            _formState.update { it.copy(translationError = "Додай фото hlášení з SAP") }
+            return
+        }
+        if (apiKey.isBlank()) {
+            _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
+            return
+        }
+        invalidateGeneratedResults()
+        _formState.update { it.copy(isReadingPhoto = true, translationError = null) }
+        viewModelScope.launch {
+            try {
+                val image = uriToBase64(photoUri, maxSize = 1800, quality = 88)
+                    ?: throw IllegalStateException("Не вдалося прочитати фото")
+                val notification = repository.extractSapNotification(image, apiKey)
+                if (_formState.value.photoUri != photoUri) {
+                    _formState.update {
+                        it.copy(isReadingPhoto = false, translationError = "Фото змінилося під час OCR — прочитай його ще раз")
+                    }
+                    return@launch
+                }
+                if (notification.notificationText.isBlank() && notification.orderId.isBlank()) {
+                    throw IllegalStateException("AI не зміг прочитати hlášení. Зроби чіткіше фото")
+                }
+                _formState.update {
+                    it.copy(
+                        notification = notification,
+                        orderId = notification.orderId,
+                        startTime = notification.notificationTime,
+                        endDate = notification.notificationDate,
+                        endDateManuallyEdited = false,
+                        notificationConfirmed = false,
+                        isReadingPhoto = false
+                    )
+                }
+                calculateHours()
+            } catch (e: Exception) {
+                _formState.update {
+                    it.copy(isReadingPhoto = false, translationError = "Помилка OCR SAP: ${e.localizedMessage}")
+                }
+            }
+        }
+    }
 
     /** SUBMIT mode: Translate UA→CS. SAP auto-fill is NOT called automatically — user triggers it manually. */
     fun translate(apiKey: String = apiKey()) {
@@ -236,6 +442,22 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             _formState.update { it.copy(translationError = "Додай фото заказки з SAP") }
             return
         }
+        if (state.notification.notificationText.isBlank() || state.notification.notificationTime.isBlank()) {
+            _formState.update { it.copy(translationError = "Спочатку натисни «РОЗПІЗНАТИ HLÁŠENÍ» і перевір дані") }
+            return
+        }
+        if (!state.notificationConfirmed) {
+            _formState.update { it.copy(translationError = "Підтвердь, що дані з фото прочитані правильно") }
+            return
+        }
+        if (!SapDurationCalculator.isValidDate(state.endDate) || !SapDurationCalculator.isValidTime(state.endTime)) {
+            _formState.update { it.copy(translationError = "Перевір дату й час завершення порухи") }
+            return
+        }
+        if (state.hours <= 0.0) {
+            _formState.update { it.copy(translationError = "Кінець порухи має бути після початку") }
+            return
+        }
         if (apiKey.isBlank()) {
             _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
             return
@@ -244,23 +466,49 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         _formState.update { it.copy(isTranslating = true, translationError = null) }
         viewModelScope.launch {
             try {
-                val orderImageBase64 = uriToBase64(state.photoUri, maxSize = 1600, quality = 85)
                 val detailImageBase64 = state.detailPhotoUri?.let { uriToBase64(it, maxSize = 1600, quality = 85) }
                 val draft = repository.generateReportFromSapPhotos(
+                    notification = state.notification,
                     repairNote = state.descriptionUa,
-                    orderImageBase64 = orderImageBase64,
                     detailImageBase64 = detailImageBase64,
                     apiKey = apiKey,
                     model = getModel()
                 )
+                val sapFields = repository.extractSapFields(
+                    draft.descriptionCz,
+                    state.descriptionUa,
+                    apiKey,
+                    getModel(),
+                    state.notification
+                )
+                val current = _formState.value
+                if (
+                    current.notification != state.notification ||
+                    current.descriptionUa != state.descriptionUa ||
+                    current.detailPhotoUri != state.detailPhotoUri ||
+                    !current.notificationConfirmed
+                ) {
+                    _formState.update {
+                        it.copy(
+                            isTranslating = false,
+                            translationError = "Дані змінилися під час генерації — запусти її ще раз"
+                        )
+                    }
+                    return@launch
+                }
                 _translationResult.value = draft.descriptionCz
                 _technicalReport.value = draft.technicalReport
-                val sapStartTime = normalizeTime(draft.notificationTime)
-                if (sapStartTime.isNotBlank()) {
-                    _formState.update { it.copy(startTime = sapStartTime) }
-                    calculateHours()
+                _formState.update {
+                    it.copy(
+                        isTranslating = false,
+                        sapObjectPart = sapFields.objectPart,
+                        sapDamageDesc = sapFields.damageDesc,
+                        sapDamageText = sapFields.damageText,
+                        sapCause = sapFields.cause,
+                        sapCauseText = sapFields.causeText,
+                        sapImpact = sapFields.impact
+                    )
                 }
-                _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
                 _formState.update { it.copy(isTranslating = false, translationError = "Chyba zprávy z fotek: ${e.localizedMessage}") }
             }
@@ -304,7 +552,9 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         _formState.update { it.copy(isAutoFilling = true, translationError = null) }
         viewModelScope.launch {
             try {
-                val sapFields = repository.extractSapFields(translation, state.descriptionUa, apiKey, getModel())
+                val sapFields = repository.extractSapFields(
+                    translation, state.descriptionUa, apiKey, getModel(), state.notification
+                )
                 _formState.update {
                     it.copy(
                         sapObjectPart = sapFields.objectPart,
@@ -337,23 +587,34 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
 
-        val start = parseMinutes(state.startTime)
-        val end = parseMinutes(state.endTime)
-        if ((state.startTime.isNotBlank() || state.endTime.isNotBlank()) && (start == null || end == null)) {
-            _formState.update { it.copy(translationError = "Čas musí být ve formátu HH:mm") }
+        if (!state.notificationConfirmed) {
+            _formState.update { it.copy(translationError = "Перевір і підтвердь дані hlášení") }
+            return
+        }
+        if (!SapDurationCalculator.isValidDate(state.notification.notificationDate) ||
+            !SapDurationCalculator.isValidTime(state.startTime) ||
+            !SapDurationCalculator.isValidDate(state.endDate) ||
+            !SapDurationCalculator.isValidTime(state.endTime) ||
+            state.hours <= 0.0
+        ) {
+            _formState.update { it.copy(translationError = "Перевір дату й час початку та завершення порухи") }
+            return
+        }
+        val generatedCz = _translationResult.value
+        val generatedReport = _technicalReport.value
+        if (generatedCz.isNullOrBlank() || generatedReport.isNullOrBlank()) {
+            _formState.update { it.copy(translationError = "Спочатку згенеруй спільне hlášení з даних автора і твого опису") }
             return
         }
 
         _formState.update { it.copy(isSaving = true) }
         viewModelScope.launch {
             try {
-                val descCz = _translationResult.value
-                    ?: repository.translateToCzech(state.descriptionUa, apiKey, getModel())
-
-                val techReport = _technicalReport.value ?: ""
+                val descCz = generatedCz
+                val techReport = generatedReport
 
                 val sapFields = if (state.sapObjectPart.isBlank() && state.sapDamageDesc.isBlank()) {
-                    repository.extractSapFields(descCz, state.descriptionUa, apiKey, getModel())
+                    repository.extractSapFields(descCz, state.descriptionUa, apiKey, getModel(), state.notification)
                 } else {
                     SapFieldResult(
                         objectPart = state.sapObjectPart,
@@ -374,6 +635,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     materials = state.materials,
                     startTime = state.startTime,
                     endTime = state.endTime,
+                    sapFailureEndDate = state.endDate,
                     hours = state.hours,
                     photoUri = state.photoUri ?: state.detailPhotoUri,
                     userName = profile?.name ?: "",
@@ -384,6 +646,11 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     sapCause = sapFields.cause,
                     sapCauseText = sapFields.causeText,
                     sapImpact = sapFields.impact,
+                    sapNotificationDate = state.notification.notificationDate,
+                    sapNotificationAuthor = state.notification.author,
+                    sapTechnicalLocation = state.notification.technicalLocation,
+                    sapNotificationText = state.notification.notificationText,
+                    sapPriority = state.notification.priority,
                 )
                 repository.insertEntry(entry)
                 _formState.update { it.copy(isSaving = false, saveSuccess = true) }
@@ -404,11 +671,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun resetForm(profile: UserProfile?) {
-        _formState.value = WorkFormState(
-            workType = profile?.defaultWorkType ?: "E",
-            startTime = profile?.defaultStartTime ?: "07:00",
-            endTime = profile?.defaultEndTime ?: "15:30"
-        )
+        _formState.value = WorkFormState(workType = profile?.defaultWorkType ?: "E")
         _translationResult.value = null
         _advisorResult.value = null
         _technicalReport.value = null

@@ -1,16 +1,20 @@
-name: Build & Release APK
+name: Android CI
 
 on:
   push:
-    branches: [ main, 'feature/*' ]
+    branches: [main, 'feature/*']
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
-    name: Build APK
+    name: Test, lint and build APK
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,44 +29,23 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Accept Android licenses
+      - name: Install Android SDK packages
         run: |
           yes | sdkmanager --licenses || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Bump version
-        id: version
-        run: |
-          VERSION_CODE=${{ github.run_number }}
-          VERSION_NAME="1.${VERSION_CODE}"
-          echo "versionCode=${VERSION_CODE}" >> $GITHUB_OUTPUT
-          echo "versionName=${VERSION_NAME}" >> $GITHUB_OUTPUT
-          sed -i "s/versionCode = .*/versionCode = ${VERSION_CODE}/" app/build.gradle.kts
-          sed -i "s/versionName = \".*\"/versionName = \"${VERSION_NAME}\"/" app/build.gradle.kts
-          echo "Building version ${VERSION_NAME} (${VERSION_CODE})"
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
 
-      - name: Build Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+      - name: Android lint
+        run: ./gradlew lintDebug --no-daemon
 
-      - name: Rename APK with version
-        run: |
-          VERSION_NAME="${{ steps.version.outputs.versionName }}"
-          mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/pomocnik-${VERSION_NAME}.apk
+      - name: Build debug APK
+        run: ./gradlew assembleDebug --no-daemon
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload debug APK artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v${{ steps.version.outputs.versionName }}
-          name: Pomocnik v${{ steps.version.outputs.versionName }}
-          body: |
-            ## What's new
-            Auto-build from main branch.
-
-            **Version:** ${{ steps.version.outputs.versionName }}
-            **Build:** #${{ github.run_number }}
-
-            ### Download
-            👇 Download the APK below and install over the previous version.
-          files: app/build/outputs/apk/debug/pomocnik-${{ steps.version.outputs.versionName }}.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: pomocnik-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

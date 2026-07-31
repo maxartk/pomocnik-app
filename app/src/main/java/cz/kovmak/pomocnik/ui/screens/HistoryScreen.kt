@@ -253,7 +253,26 @@ fun EntryDetailDialog(entry: WorkEntry, onDismiss: () -> Unit, onShare: () -> Un
 
                     // Time & hours
                     if (entry.startTime.isNotEmpty() || entry.endTime.isNotEmpty()) {
-                        DetailRow("🕐 Час", "${entry.startTime}–${entry.endTime} (${entry.hours}h)")
+                        DetailRow("🚨 Поруха", "${entry.sapNotificationDate} ${entry.startTime} → ${entry.sapFailureEndDate.ifBlank { entry.sapNotificationDate }} ${entry.endTime} (${entry.hours}h)")
+                    }
+
+                    if (entry.sapNotificationText.isNotEmpty() || entry.sapNotificationAuthor.isNotEmpty() ||
+                        entry.sapTechnicalLocation.isNotEmpty() || entry.sapPriority.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        SectionHeader("🗒️ Původní hlášení")
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = DarkCard)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                if (entry.sapTechnicalLocation.isNotEmpty()) Text("Technické místo: ${entry.sapTechnicalLocation}", color = TextGray, fontSize = 12.sp)
+                                if (entry.sapNotificationAuthor.isNotEmpty()) Text("Autor: ${entry.sapNotificationAuthor}", color = TextGray, fontSize = 12.sp)
+                                if (entry.sapPriority.isNotEmpty()) Text("Priorita: ${entry.sapPriority}", color = TextGray, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(entry.sapNotificationText, color = TextWhite, fontSize = 14.sp, lineHeight = 20.sp)
+                            }
+                        }
                     }
 
                     // Materials
@@ -527,7 +546,7 @@ fun EntryCard(entry: WorkEntry, onClick: () -> Unit, onDelete: () -> Unit, onSha
 }
 
 private fun shareAllEntries(context: android.content.Context, entries: List<WorkEntry>) {
-    val header = "timestamp,orderId,workType,startTime,endTime,hours,ua,cz,materials,report"
+    val header = "timestamp,orderId,workType,notificationDate,startTime,endDate,endTime,hours,technicalLocation,notificationAuthor,priority,notificationText,ua,cz,materials,report"
     fun esc(value: String): String = "\"" + value.replace("\"", "\"\"") + "\""
     val csv = buildString {
         appendLine(header)
@@ -537,9 +556,15 @@ private fun shareAllEntries(context: android.content.Context, entries: List<Work
                     entry.timestamp.toString(),
                     esc(entry.orderId),
                     esc(entry.workType),
+                    esc(entry.sapNotificationDate),
                     esc(entry.startTime),
+                    esc(entry.sapFailureEndDate.ifBlank { entry.sapNotificationDate }),
                     esc(entry.endTime),
                     entry.hours.toString(),
+                    esc(entry.sapTechnicalLocation),
+                    esc(entry.sapNotificationAuthor),
+                    esc(entry.sapPriority),
+                    esc(entry.sapNotificationText),
                     esc(entry.descriptionUa),
                     esc(entry.descriptionCz),
                     esc(entry.materials),
@@ -573,7 +598,10 @@ private fun shareEntry(context: android.content.Context, entry: WorkEntry) {
     } else ""
     val text = """
 ⚡ ${if (entry.workType == "E") "Elektrická" else "Mechanická"} | #${entry.orderId}
-🕐 ${entry.startTime}-${entry.endTime} (${entry.hours}h)
+📍 ${entry.sapTechnicalLocation}
+🚨 Hlášení: ${entry.sapNotificationDate} ${entry.startTime} | Konec poruchy: ${entry.sapFailureEndDate.ifBlank { entry.sapNotificationDate }} ${entry.endTime} (${entry.hours}h)
+👤 Autor hlášení: ${entry.sapNotificationAuthor} | Priorita: ${entry.sapPriority}
+🗒️ Původní závada: ${entry.sapNotificationText}
 
 ${entry.descriptionCz}
 

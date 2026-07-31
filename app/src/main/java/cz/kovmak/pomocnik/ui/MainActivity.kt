@@ -118,13 +118,7 @@ fun PomocnikApp() {
             when (selectedTab) {
                 0 -> HomeScreen(viewModel = workViewModel)
                 1 -> HistoryScreen(onRepeatEntry = { entry ->
-                    // Pre-fill WorkViewModel and switch to Home tab
-                    workViewModel.updateDescriptionUa(entry.descriptionUa)
-                    workViewModel.updateOrderId(entry.orderId)
-                    workViewModel.updateWorkType(entry.workType)
-                    workViewModel.updateMaterials(entry.materials)
-                    workViewModel.updateStartTime(entry.startTime)
-                    workViewModel.updateEndTime(entry.endTime)
+                    workViewModel.loadEntry(entry)
                     selectedTab = 0
                 })
                 2 -> ShiftScheduleScreen()

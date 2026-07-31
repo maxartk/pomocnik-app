@@ -10,6 +10,8 @@ import cz.kovmak.pomocnik.data.network.ImageUrl
 import cz.kovmak.pomocnik.data.model.SapCatalogs
 import cz.kovmak.pomocnik.data.model.SapFieldParser
 import cz.kovmak.pomocnik.data.model.SapFieldResult
+import cz.kovmak.pomocnik.data.model.SapNotificationData
+import cz.kovmak.pomocnik.data.model.SapNotificationParser
 import cz.kovmak.pomocnik.data.network.ModelConfig
 import cz.kovmak.pomocnik.BuildConfig
 import com.google.gson.JsonParser
@@ -22,8 +24,7 @@ import kotlinx.coroutines.withContext
 
 data class SapPhotoReportDraft(
     val descriptionCz: String,
-    val technicalReport: String,
-    val notificationTime: String = ""
+    val technicalReport: String
 )
 
 class WorkRepository(
@@ -229,29 +230,73 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
     }
 
 
+    /** Read the source notification context from a SAP screenshot without inventing unreadable values. */
+    suspend fun extractSapNotification(
+        orderImageBase64: String,
+        apiKey: String
+    ): SapNotificationData = withContext(Dispatchers.IO) {
+        val dynamicApi = OpenRouterApi.create(apiKey)
+        val prompt = """Přečti fotografii SAP PM hlášení. Vrať POUZE validní JSON bez markdownu:
+{
+  "orderId": "číslo pole Zakázka nebo prázdný řetězec",
+  "technicalLocation": "Technické místo nebo prázdný řetězec",
+  "notificationText": "doslovný popis samotné závady z pole Stav objektu, bez hlavičky s telefonem a timestampem",
+  "author": "Autor hlášení nebo prázdný řetězec",
+  "notificationDate": "datum pole Datum hlášení ve formátu DD.MM.YYYY",
+  "notificationTime": "čas pole Datum hlášení ve formátu HH:mm",
+  "priority": "priorita přesně z obrazovky"
+}
+
+Pravidla:
+- Čti hodnoty pouze z viditelných polí SAP.
+- Datum a čas ber z pole Datum hlášení, ne z časové značky uvnitř textu Stav objektu.
+- Nic nedoplňuj a nic neodhaduj. Nečitelná hodnota musí být prázdný řetězec.
+- Zachovej původní český text závady, pouze odstraň telefonní číslo a technickou časovou značku před textem.""".trimIndent()
+        val request = TranslationRequest(
+            model = ModelConfig.VISION_MODEL,
+            messages = listOf(
+                Message("system", "Jsi přesný OCR parser obrazovek SAP PM. Nikdy si nevymýšlíš nečitelné hodnoty."),
+                Message("user", listOf(
+                    ContentPart("text", text = prompt),
+                    ContentPart("image_url", image_url = ImageUrl("data:image/jpeg;base64,$orderImageBase64"))
+                ))
+            ),
+            temperature = 0.0,
+            max_tokens = 700
+        )
+        val raw = dynamicApi.translate(request).choices.firstOrNull()?.message?.content.orEmpty()
+        SapNotificationParser.parse(raw)
+    }
+
     /**
-     * Compose a Czech SAP work report from the SAP order photo, optional real part photo,
-     * and worker's Ukrainian/Czech repair note. The worker note and detail photo are authoritative
-     * when SAP/master text names the wrong component.
+     * Compose a Czech SAP work report from reviewed notification data, an optional real-part photo,
+     * and the worker's Ukrainian/Czech repair note. The worker note and detail photo are authoritative.
      */
     suspend fun generateReportFromSapPhotos(
+        notification: SapNotificationData,
         repairNote: String,
-        orderImageBase64: String?,
         detailImageBase64: String?,
         apiKey: String,
         model: String = ModelConfig.VISION_MODEL
     ): SapPhotoReportDraft = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
-        val chosenModel = if (orderImageBase64 != null || detailImageBase64 != null) ModelConfig.VISION_MODEL else model
+        val chosenModel = if (detailImageBase64 != null) ModelConfig.VISION_MODEL else model
 
         val systemPrompt = """Jsi zkušený technik průmyslové údržby v SAP PM.
 Umíš číst fotky hlášení/zakázky ze SAP a z krátké poznámky pracovníka napsat jednoduchý český zápis práce.
 Piš jako normální elektrikář z údržby, ne jako kancelář nebo inženýr. Zachovej technický význam přesně.""".trimIndent()
 
         val textPrompt = """Vytvoř výstup pro pracovní hlášení podle těchto vstupů:
-1) FOTO SAP ZAKÁZKY/HLÁŠENÍ: přečti číslo zakázky, technické místo, čas hlášení a původní závadu, pokud jsou vidět.
-2) FOTO SKUTEČNÉ DÍLU: je nepovinné. Pokud je přiložené, použij ho k ověření správné části.
-3) POZNÁMKA PRACOVNÍKA: je rozhodující pro to, co se opravdu opravilo.
+1) PŮVODNÍ HLÁŠENÍ AUTORA:
+- Zakázka: ${notification.orderId}
+- Technické místo: ${notification.technicalLocation}
+- Datum a čas hlášení: ${notification.notificationDate} ${notification.notificationTime}
+- Autor: ${notification.author}
+- Priorita: ${notification.priority}
+- Popis závady od autora: ${notification.notificationText}
+
+2) FOTO SKUTEČNÉHO DÍLU: je nepovinné. Pokud je přiložené, použij ho k ověření správné části.
+3) POZNÁMKA PRACOVNÍKA PO OPRAVĚ: je rozhodující pro to, co se opravdu udělalo.
 
 Poznámka pracovníka:
 $repairNote
@@ -265,8 +310,7 @@ Důležitá pravidla:
 - Nepiš žádné nadpisy, odrážky, markdown ani **.
 - Nepoužívej kancelářská slova jako "provedena", "provozuschopnost", "zařízení obnovena", "doporučena objednávka".
 - Nezačínej "Dobrý den" a nepřidávej fráze typu "úkol splněn".
-- Čas hlášení v SAP vrať jako "notificationTime" ve formátu HH:mm. Například z "19.05.2026 03:21:23" vrať "03:21".
-- Pokud čas hlášení není čitelný, vrať prázdný řetězec.
+- Spoj kontext od autora hlášení s tím, co pracovník skutečně udělal. Nezaměňuj původní závadu za provedenou opravu.
 
 Správný styl příkladu:
 Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě nové.
@@ -276,17 +320,12 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
 Vrať POUZE validní JSON bez markdownu:
 {
   "descriptionCz": "jedna přirozená česká věta co bylo opraveno",
-  "technicalReport": "1 až 3 krátké obyčejné české věty bez nadpisů a bez markdownu",
-  "notificationTime": "HH:mm nebo prázdné"
+  "technicalReport": "1 až 3 krátké obyčejné české věty bez nadpisů a bez markdownu"
 }""".trimIndent()
 
         val content = mutableListOf<ContentPart>(ContentPart(type = "text", text = textPrompt))
-        orderImageBase64?.let {
-            content += ContentPart(type = "text", text = "Foto 1: SAP zakázka / hlášení")
-            content += ContentPart(type = "image_url", image_url = ImageUrl(url = "data:image/jpeg;base64,$it"))
-        }
         detailImageBase64?.let {
-            content += ContentPart(type = "text", text = "Foto 2: skutečný díl / detail závady (nepovinné, ale má přednost pro určení dílu)")
+            content += ContentPart(type = "text", text = "Foto skutečného dílu / detail závady (má přednost pro určení dílu)")
             content += ContentPart(type = "image_url", image_url = ImageUrl(url = "data:image/jpeg;base64,$it"))
         }
 
@@ -306,8 +345,7 @@ Vrať POUZE validní JSON bez markdownu:
             val obj = JsonParser.parseString(jsonText).asJsonObject
             SapPhotoReportDraft(
                 descriptionCz = obj.get("descriptionCz")?.asString?.trim().orEmpty().ifBlank { repairNote },
-                technicalReport = cleanWorkerReport(obj.get("technicalReport")?.asString?.trim().orEmpty()),
-                notificationTime = obj.get("notificationTime")?.asString?.trim().orEmpty()
+                technicalReport = cleanWorkerReport(obj.get("technicalReport")?.asString?.trim().orEmpty())
             )
         } catch (_: Exception) {
             SapPhotoReportDraft(descriptionCz = raw.ifBlank { repairNote }, technicalReport = cleanWorkerReport(raw))
@@ -322,7 +360,8 @@ Vrať POUZE validní JSON bez markdownu:
         descriptionCz: String,
         descriptionUa: String,
         apiKey: String,
-        model: String = ModelConfig.DEFAULT_MODEL
+        model: String = ModelConfig.DEFAULT_MODEL,
+        notificationContext: SapNotificationData? = null
     ): SapFieldResult = withContext(Dispatchers.IO) {
         val dynamicApi = OpenRouterApi.create(apiKey)
 
@@ -335,6 +374,11 @@ Vrať POUZE validní JSON bez markdownu:
 
 Popis práce (UA): $descriptionUa
 Popis práce (CZ): $descriptionCz
+
+Původní hlášení autora:
+- Technické místo: ${notificationContext?.technicalLocation.orEmpty()}
+- Popis původní závady: ${notificationContext?.notificationText.orEmpty()}
+- Autor: ${notificationContext?.author.orEmpty()}
 
 Dostupné katalogy:
 $catalogsText
