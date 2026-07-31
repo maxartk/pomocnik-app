@@ -4,6 +4,17 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+val releaseStorePath = System.getenv("POMOCNIK_KEYSTORE_PATH")
+val releaseStorePassword = System.getenv("POMOCNIK_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("POMOCNIK_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("POMOCNIK_KEY_PASSWORD")
+val releaseSigningAvailable = listOf(
+    releaseStorePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "cz.kovmak.pomocnik"
     compileSdk = 34
@@ -17,10 +28,24 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseSigningAvailable) {
+            create("release") {
+                storeFile = file(releaseStorePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (releaseSigningAvailable) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 

@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, 'feature/*']
   workflow_dispatch:
+    inputs:
+      signed_release:
+        description: Build the signed release APK
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -48,4 +54,37 @@ jobs:
         with:
           name: pomocnik-debug-${{ github.sha }}
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Decode release keystore
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_release }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.POMOCNIK_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$KEYSTORE_BASE64"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/pomocnik-release.jks"
+          chmod 600 "$RUNNER_TEMP/pomocnik-release.jks"
+
+      - name: Build signed release APK
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_release }}
+        env:
+          POMOCNIK_KEYSTORE_PATH: ${{ runner.temp }}/pomocnik-release.jks
+          POMOCNIK_STORE_PASSWORD: ${{ secrets.POMOCNIK_STORE_PASSWORD }}
+          POMOCNIK_KEY_ALIAS: ${{ secrets.POMOCNIK_KEY_ALIAS }}
+          POMOCNIK_KEY_PASSWORD: ${{ secrets.POMOCNIK_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Verify and name signed release APK
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_release }}
+        run: |
+          apksigner verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Pomocnik-v1.60.apk
+          sha256sum app/build/outputs/apk/release/Pomocnik-v1.60.apk
+
+      - name: Upload signed release APK
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_release }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pomocnik-v1.60-signed
+          path: app/build/outputs/apk/release/Pomocnik-v1.60.apk
           if-no-files-found: error
