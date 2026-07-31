@@ -15,6 +15,7 @@ data class UserProfile(
     val name: String = "",
     val email: String = "",
     val openRouterApiKey: String = "",
+    val ocrAccessKey: String = "",
     val selectedModel: String = ModelConfig.DEFAULT_MODEL,
     val defaultWorkType: String = "E",
     val defaultStartTime: String = "07:00",
@@ -29,6 +30,7 @@ class SettingsRepository(private val context: Context) {
         val NAME = stringPreferencesKey("user_name")
         val EMAIL = stringPreferencesKey("user_email")
         val OPENROUTER_API_KEY = stringPreferencesKey("openrouter_api_key")
+        val OCR_ACCESS_KEY = stringPreferencesKey("ocr_access_key")
         val SELECTED_MODEL = stringPreferencesKey("selected_model")
         val DEFAULT_WORK_TYPE = stringPreferencesKey("default_work_type")
         val DEFAULT_START_TIME = stringPreferencesKey("default_start_time")
@@ -42,6 +44,7 @@ class SettingsRepository(private val context: Context) {
             name = prefs[PreferencesKeys.NAME] ?: "",
             email = prefs[PreferencesKeys.EMAIL] ?: "",
             openRouterApiKey = prefs[PreferencesKeys.OPENROUTER_API_KEY] ?: "",
+            ocrAccessKey = prefs[PreferencesKeys.OCR_ACCESS_KEY] ?: "",
             selectedModel = prefs[PreferencesKeys.SELECTED_MODEL] ?: ModelConfig.DEFAULT_MODEL,
             defaultWorkType = prefs[PreferencesKeys.DEFAULT_WORK_TYPE] ?: "E",
             defaultStartTime = prefs[PreferencesKeys.DEFAULT_START_TIME] ?: "07:00",
@@ -66,6 +69,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun updateApiKey(apiKey: String) {
         context.dataStore.edit { prefs ->
             prefs[PreferencesKeys.OPENROUTER_API_KEY] = apiKey
+        }
+    }
+
+    suspend fun updateOcrAccessKey(accessKey: String) {
+        context.dataStore.edit { prefs ->
+            prefs[PreferencesKeys.OCR_ACCESS_KEY] = accessKey.trim()
         }
     }
 

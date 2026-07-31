@@ -27,6 +27,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
     var email by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
     var showApiKey by remember { mutableStateOf(false) }
+    var ocrAccessKey by remember { mutableStateOf("") }
+    var showOcrAccessKey by remember { mutableStateOf(false) }
     var startTime by remember { mutableStateOf("07:00") }
     var endTime by remember { mutableStateOf("15:30") }
     var defaultWorkType by remember { mutableStateOf("E") }
@@ -43,6 +45,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             name = it.name
             email = it.email
             apiKey = it.openRouterApiKey
+            ocrAccessKey = it.ocrAccessKey
             selectedModel = it.selectedModel
             startTime = it.defaultStartTime
             endTime = it.defaultEndTime
@@ -144,6 +147,44 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
 
                 Text(
                     text = "Získejte klíč na openrouter.ai. Používá se pro překlad UA→CZ a analýzu fotek.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        // Authenticated OCR gateway section
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "🔐 Доступ до SAP OCR",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = ocrAccessKey,
+                    onValueChange = {
+                        ocrAccessKey = it
+                        viewModel.updateOcrAccessKey(it)
+                    },
+                    label = { Text("Pomocnik OCR access key") },
+                    modifier = Modifier.fillMaxWidth(),
+                    leadingIcon = { Icon(Icons.Default.Security, contentDescription = null) },
+                    visualTransformation = if (showOcrAccessKey) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { showOcrAccessKey = !showOcrAccessKey }) {
+                            Icon(
+                                if (showOcrAccessKey) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Ключ захищає n8n OCR webhook. Provider API keys залишаються тільки на сервері.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

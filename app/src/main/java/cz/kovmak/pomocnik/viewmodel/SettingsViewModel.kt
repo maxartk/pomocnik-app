@@ -34,6 +34,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    fun updateOcrAccessKey(accessKey: String) {
+        viewModelScope.launch {
+            repository.updateOcrAccessKey(accessKey)
+        }
+    }
+
     fun updateDefaultWorkType(workType: String) {
         viewModelScope.launch {
             repository.updateDefaultWorkType(workType)

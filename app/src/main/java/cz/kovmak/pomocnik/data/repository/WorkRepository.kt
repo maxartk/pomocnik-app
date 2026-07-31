@@ -2,8 +2,12 @@ package cz.kovmak.pomocnik.data.repository
 
 import cz.kovmak.pomocnik.data.database.WorkEntry
 import cz.kovmak.pomocnik.data.database.WorkEntryDao
+import cz.kovmak.pomocnik.data.network.MaintenanceApi
 import cz.kovmak.pomocnik.data.network.OpenRouterApi
 import cz.kovmak.pomocnik.data.network.TranslationRequest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import cz.kovmak.pomocnik.data.network.Message
 import cz.kovmak.pomocnik.data.network.ContentPart
 import cz.kovmak.pomocnik.data.network.ImageUrl
@@ -11,7 +15,6 @@ import cz.kovmak.pomocnik.data.model.SapCatalogs
 import cz.kovmak.pomocnik.data.model.SapFieldParser
 import cz.kovmak.pomocnik.data.model.SapFieldResult
 import cz.kovmak.pomocnik.data.model.SapNotificationData
-import cz.kovmak.pomocnik.data.model.SapNotificationParser
 import cz.kovmak.pomocnik.data.network.ModelConfig
 import cz.kovmak.pomocnik.BuildConfig
 import com.google.gson.JsonParser
@@ -29,7 +32,8 @@ data class SapPhotoReportDraft(
 
 class WorkRepository(
     private val dao: WorkEntryDao,
-    private val api: OpenRouterApi
+    private val api: OpenRouterApi,
+    private val maintenanceApi: MaintenanceApi = MaintenanceApi.create()
 ) {
 
     private fun cleanWorkerReport(text: String): String {
@@ -230,42 +234,21 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
     }
 
 
-    /** Read the source notification context from a SAP screenshot without inventing unreadable values. */
+    /** Send the SAP screenshot to the production n8n OCR.Space workflow. */
     suspend fun extractSapNotification(
-        orderImageBase64: String,
-        apiKey: String
+        orderImage: ByteArray,
+        accessToken: String,
+        fileName: String = "sap-notification.jpg"
     ): SapNotificationData = withContext(Dispatchers.IO) {
-        val dynamicApi = OpenRouterApi.create(apiKey)
-        val prompt = """Přečti fotografii SAP PM hlášení. Vrať POUZE validní JSON bez markdownu:
-{
-  "orderId": "číslo pole Zakázka nebo prázdný řetězec",
-  "technicalLocation": "Technické místo nebo prázdný řetězec",
-  "notificationText": "doslovný popis samotné závady z pole Stav objektu, bez hlavičky s telefonem a timestampem",
-  "author": "Autor hlášení nebo prázdný řetězec",
-  "notificationDate": "datum pole Datum hlášení ve formátu DD.MM.YYYY",
-  "notificationTime": "čas pole Datum hlášení ve formátu HH:mm",
-  "priority": "priorita přesně z obrazovky"
-}
+        require(orderImage.isNotEmpty()) { "SAP image is empty" }
+        require(orderImage.size <= 950_000) { "SAP image must be smaller than 950 KB" }
+        require(accessToken.isNotBlank()) { "Pomocnik OCR access key is missing" }
 
-Pravidla:
-- Čti hodnoty pouze z viditelných polí SAP.
-- Datum a čas ber z pole Datum hlášení, ne z časové značky uvnitř textu Stav objektu.
-- Nic nedoplňuj a nic neodhaduj. Nečitelná hodnota musí být prázdný řetězec.
-- Zachovej původní český text závady, pouze odstraň telefonní číslo a technickou časovou značku před textem.""".trimIndent()
-        val request = TranslationRequest(
-            model = ModelConfig.VISION_MODEL,
-            messages = listOf(
-                Message("system", "Jsi přesný OCR parser obrazovek SAP PM. Nikdy si nevymýšlíš nečitelné hodnoty."),
-                Message("user", listOf(
-                    ContentPart("text", text = prompt),
-                    ContentPart("image_url", image_url = ImageUrl("data:image/jpeg;base64,$orderImageBase64"))
-                ))
-            ),
-            temperature = 0.0,
-            max_tokens = 700
-        )
-        val raw = dynamicApi.translate(request).choices.firstOrNull()?.message?.content.orEmpty()
-        SapNotificationParser.parse(raw)
+        val imageBody = orderImage.toRequestBody("image/jpeg".toMediaType())
+        val imagePart = MultipartBody.Part.createFormData("file", fileName, imageBody)
+        val action = "ocr_notification".toRequestBody("text/plain".toMediaType())
+
+        maintenanceApi.readSapNotification(accessToken.trim(), action, imagePart).requireNotification()
     }
 
     /**

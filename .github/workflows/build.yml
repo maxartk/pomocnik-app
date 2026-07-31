@@ -10,6 +10,11 @@ on:
         required: true
         default: false
         type: boolean
+      release_version:
+        description: Version name expected inside the signed APK
+        required: true
+        default: "1.61"
+        type: string
 
 permissions:
   contents: read
@@ -76,15 +81,22 @@ jobs:
 
       - name: Verify and name signed release APK
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_release }}
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
+          if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?([.-][0-9A-Za-z]+)*$ ]]; then
+            echo "Invalid release_version: expected a numeric semantic version" >&2
+            exit 1
+          fi
           "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
-          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Pomocnik-v1.60.apk
-          sha256sum app/build/outputs/apk/release/Pomocnik-v1.60.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging app/build/outputs/apk/release/app-release.apk | grep -F "versionName='$RELEASE_VERSION'"
+          mv app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/Pomocnik-v${RELEASE_VERSION}.apk"
+          sha256sum "app/build/outputs/apk/release/Pomocnik-v${RELEASE_VERSION}.apk"
 
       - name: Upload signed release APK
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.signed_release }}
         uses: actions/upload-artifact@v4
         with:
-          name: Pomocnik-v1.60-signed
-          path: app/build/outputs/apk/release/Pomocnik-v1.60.apk
+          name: Pomocnik-v${{ inputs.release_version }}-signed
+          path: app/build/outputs/apk/release/Pomocnik-v${{ inputs.release_version }}.apk
           if-no-files-found: error

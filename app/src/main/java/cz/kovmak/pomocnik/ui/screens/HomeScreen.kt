@@ -66,6 +66,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
     val technicalReport by viewModel.technicalReport.collectAsState()
     val profile by viewModel.userProfile.collectAsState()
     val apiKey = profile?.openRouterApiKey ?: ""
+    val ocrAccessKey = profile?.ocrAccessKey ?: ""
 
     val permissionsState = rememberMultiplePermissionsState(
         listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.CAMERA)
@@ -318,7 +319,7 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                     } else {
                         PhotoPickerBlock(
                             label = "📋 Фото hlášení SAP",
-                            hint = "Сфоткай екран — AI витягне заказку, автора, дату, час і опис порухи",
+                            hint = "Сфоткай екран — OCR.Space через n8n витягне заказку, автора, дату, час і опис порухи",
                             uri = formState.photoUri,
                             accent = NeonOrange,
                             onCamera = { launchCamera("main") },
@@ -327,8 +328,8 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Button(
-                            onClick = { viewModel.readSapNotification(apiKey) },
-                            enabled = formState.photoUri != null && !formState.isReadingPhoto && apiKey.isNotEmpty(),
+                            onClick = viewModel::readSapNotification,
+                            enabled = formState.photoUri != null && !formState.isReadingPhoto && ocrAccessKey.isNotBlank(),
                             modifier = Modifier.fillMaxWidth().height(48.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = NeonOrange)
@@ -342,6 +343,14 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text("РОЗПІЗНАТИ HLÁŠENÍ", fontWeight = FontWeight.Bold)
                             }
+                        }
+                        if (ocrAccessKey.isBlank()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                "Додай Pomocnik OCR access key у Налаштуваннях",
+                                color = Color(0xFFFFCC66),
+                                fontSize = 11.sp
+                            )
                         }
 
                         val notification = formState.notification

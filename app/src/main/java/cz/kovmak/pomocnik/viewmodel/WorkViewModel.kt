@@ -276,6 +276,8 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun apiKey(): String = userProfile.value?.openRouterApiKey ?: ""
 
+    private fun ocrAccessKey(): String = userProfile.value?.ocrAccessKey ?: ""
+
     private fun parseMinutes(value: String): Int? {
         val match = Regex("^(\\d{2}):(\\d{2})$").matchEntire(value.trim()) ?: return null
         val h = match.groupValues[1].toIntOrNull() ?: return null
@@ -301,6 +303,66 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             s.endTime
         )
         _formState.update { it.copy(hours = calculated) }
+    }
+
+    /**
+     * Converts a content:// or file:// URI to a JPEG byte array suitable for OCR.Space free API limits.
+     */
+    private fun uriToOcrJpeg(
+        uriString: String,
+        maxDimension: Int = 1800,
+        maxBytes: Int = 900_000
+    ): ByteArray? {
+        return try {
+            val uri = Uri.parse(uriString)
+            val context = getApplication<Application>()
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return null
+            val source = BitmapFactory.decodeStream(inputStream).also { inputStream.close() } ?: return null
+
+            var bitmap = if (source.width > maxDimension || source.height > maxDimension) {
+                val scale = maxDimension.toFloat() / maxOf(source.width, source.height)
+                Bitmap.createScaledBitmap(
+                    source,
+                    (source.width * scale).toInt().coerceAtLeast(1),
+                    (source.height * scale).toInt().coerceAtLeast(1),
+                    true
+                ).also { source.recycle() }
+            } else {
+                source
+            }
+
+            fun compress(current: Bitmap, quality: Int): ByteArray {
+                val output = ByteArrayOutputStream()
+                current.compress(Bitmap.CompressFormat.JPEG, quality, output)
+                return output.toByteArray()
+            }
+
+            var quality = 90
+            var bytes = compress(bitmap, quality)
+            while (bytes.size > maxBytes && quality > 55) {
+                quality -= 5
+                bytes = compress(bitmap, quality)
+            }
+
+            var resizeAttempts = 0
+            while (bytes.size > maxBytes && resizeAttempts < 4) {
+                val smaller = Bitmap.createScaledBitmap(
+                    bitmap,
+                    (bitmap.width * 0.82f).toInt().coerceAtLeast(1),
+                    (bitmap.height * 0.82f).toInt().coerceAtLeast(1),
+                    true
+                )
+                bitmap.recycle()
+                bitmap = smaller
+                bytes = compress(bitmap, 72)
+                resizeAttempts++
+            }
+            bitmap.recycle()
+            bytes.takeIf { it.isNotEmpty() && it.size <= maxBytes }
+        } catch (e: Exception) {
+            android.util.Log.e("Pomocnik", "uriToOcrJpeg failed: ${e.message}", e)
+            null
+        }
     }
 
     /**
@@ -332,24 +394,25 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── API actions ──────────────────────────────────────────────────────────
 
-    /** First step: OCR the SAP screenshot and prefill reviewed notification context. */
-    fun readSapNotification(apiKey: String = apiKey()) {
+    /** First step: send the SAP screenshot to n8n OCR.Space and prefill reviewed notification context. */
+    fun readSapNotification() {
         val photoUri = _formState.value.photoUri
         if (photoUri.isNullOrBlank()) {
             _formState.update { it.copy(translationError = "Додай фото hlášení з SAP") }
             return
         }
-        if (apiKey.isBlank()) {
-            _formState.update { it.copy(translationError = "Zadejte API klíč v nastavení") }
+        val accessKey = ocrAccessKey()
+        if (accessKey.isBlank()) {
+            _formState.update { it.copy(translationError = "Додай Pomocnik OCR access key у Налаштуваннях") }
             return
         }
         invalidateGeneratedResults()
         _formState.update { it.copy(isReadingPhoto = true, translationError = null) }
         viewModelScope.launch {
             try {
-                val image = uriToBase64(photoUri, maxSize = 1800, quality = 88)
-                    ?: throw IllegalStateException("Не вдалося прочитати фото")
-                val notification = repository.extractSapNotification(image, apiKey)
+                val image = uriToOcrJpeg(photoUri)
+                    ?: throw IllegalStateException("Не вдалося підготувати фото до 900 KB")
+                val notification = repository.extractSapNotification(image, accessKey)
                 if (_formState.value.photoUri != photoUri) {
                     _formState.update {
                         it.copy(isReadingPhoto = false, translationError = "Фото змінилося під час OCR — прочитай його ще раз")
@@ -357,7 +420,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                     return@launch
                 }
                 if (notification.notificationText.isBlank() && notification.orderId.isBlank()) {
-                    throw IllegalStateException("AI не зміг прочитати hlášení. Зроби чіткіше фото")
+                    throw IllegalStateException("OCR не зміг прочитати hlášení. Зроби чіткіше фото")
                 }
                 _formState.update {
                     it.copy(
