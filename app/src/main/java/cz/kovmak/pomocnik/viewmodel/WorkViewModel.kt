@@ -34,7 +34,6 @@ data class WorkFormState(
     val photoUri: String? = null,
     val detailPhotoUri: String? = null,
     val notification: SapNotificationData = SapNotificationData(),
-    val mode: String = "submit", // submit | advisor
     val isTranslating: Boolean = false,
     val translationError: String? = null,
     val isSaving: Boolean = false,
@@ -74,9 +73,6 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _translationResult = MutableStateFlow<String?>(null)
     val translationResult: StateFlow<String?> = _translationResult
-
-    private val _advisorResult = MutableStateFlow<String?>(null)
-    val advisorResult: StateFlow<String?> = _advisorResult
 
     private val _technicalReport = MutableStateFlow<String?>(null)
     val technicalReport: StateFlow<String?> = _technicalReport
@@ -166,8 +162,6 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         _formState.update { it.copy(detailPhotoUri = uri) }
         invalidateGeneratedResults()
     }
-    fun setMode(mode: String) = _formState.update { it.copy(mode = mode) }
-
     fun updateSapObjectPart(code: String) = _formState.update { it.copy(sapObjectPart = code) }
     fun updateSapDamageDesc(code: String) = _formState.update { it.copy(sapDamageDesc = code) }
     fun updateSapDamageText(text: String) = _formState.update { it.copy(sapDamageText = text) }
@@ -394,7 +388,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
     // ── API actions ──────────────────────────────────────────────────────────
 
-    /** First step: send the SAP screenshot to n8n OCR.Space and prefill reviewed notification context. */
+    /** First step: send the SAP screenshot to n8n AI Vision and prefill reviewed notification context. */
     fun readSapNotification() {
         val photoUri = _formState.value.photoUri
         if (photoUri.isNullOrBlank()) {
@@ -403,7 +397,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
         }
         val accessKey = ocrAccessKey()
         if (accessKey.isBlank()) {
-            _formState.update { it.copy(translationError = "Додай Pomocnik OCR access key у Налаштуваннях") }
+            _formState.update { it.copy(translationError = "Додай Pomocnik AI Vision access key у Налаштуваннях") }
             return
         }
         invalidateGeneratedResults()
@@ -415,12 +409,12 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 val notification = repository.extractSapNotification(image, accessKey)
                 if (_formState.value.photoUri != photoUri) {
                     _formState.update {
-                        it.copy(isReadingPhoto = false, translationError = "Фото змінилося під час OCR — прочитай його ще раз")
+                        it.copy(isReadingPhoto = false, translationError = "Фото змінилося під час AI Vision — прочитай його ще раз")
                     }
                     return@launch
                 }
                 if (notification.notificationText.isBlank() && notification.orderId.isBlank()) {
-                    throw IllegalStateException("OCR не зміг прочитати hlášení. Зроби чіткіше фото")
+                    throw IllegalStateException("AI Vision не зміг прочитати hlášení. Зроби чіткіше фото")
                 }
                 _formState.update {
                     it.copy(
@@ -436,7 +430,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
                 calculateHours()
             } catch (e: Exception) {
                 _formState.update {
-                    it.copy(isReadingPhoto = false, translationError = "Помилка OCR SAP: ${e.localizedMessage}")
+                    it.copy(isReadingPhoto = false, translationError = "Помилка AI Vision SAP: ${e.localizedMessage}")
                 }
             }
         }
@@ -483,8 +477,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             try {
-                val answer = repository.askAdvisor(question, apiKey, getModel(), imageBase64)
-                _advisorResult.value = answer
+                repository.askAdvisor(question, apiKey, getModel(), imageBase64)
                 _formState.update { it.copy(isTranslating = false) }
             } catch (e: Exception) {
                 android.util.Log.e("Pomocnik", "Advisor error: ${e.message}", e)
@@ -506,7 +499,7 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (state.notification.notificationText.isBlank() || state.notification.notificationTime.isBlank()) {
-            _formState.update { it.copy(translationError = "Спочатку натисни «РОЗПІЗНАТИ HLÁŠENÍ» і перевір дані") }
+            _formState.update { it.copy(translationError = "Спочатку натисни «ПРОЧИТАТИ HLÁŠENÍ З AI» і перевір дані") }
             return
         }
         if (!state.notificationConfirmed) {
@@ -729,14 +722,12 @@ class WorkViewModel(application: Application) : AndroidViewModel(application) {
     fun clearResults() {
         _formState.update { it.copy(descriptionUa = "", translationError = null) }
         _translationResult.value = null
-        _advisorResult.value = null
         _technicalReport.value = null
     }
 
     private fun resetForm(profile: UserProfile?) {
         _formState.value = WorkFormState(workType = profile?.defaultWorkType ?: "E")
         _translationResult.value = null
-        _advisorResult.value = null
         _technicalReport.value = null
     }
 }

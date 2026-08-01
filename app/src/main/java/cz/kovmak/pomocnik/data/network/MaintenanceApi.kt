@@ -27,11 +27,11 @@ data class MaintenanceOcrResponse(
 ) {
     fun requireNotification(): SapNotificationData {
         if (!success) {
-            throw MaintenanceApiException(error?.trim().orEmpty().ifBlank { "n8n OCR failed" })
+            throw MaintenanceApiException(error?.trim().orEmpty().ifBlank { "n8n AI Vision failed" })
         }
         val notification = SapNotificationParser.parse(Gson().toJson(this))
         if (notification.orderId.isBlank() && notification.notificationText.isBlank()) {
-            throw MaintenanceApiException("OCR did not return readable SAP fields")
+            throw MaintenanceApiException("AI Vision did not return readable SAP fields")
         }
         return notification
     }

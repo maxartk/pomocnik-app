@@ -234,7 +234,7 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
     }
 
 
-    /** Send the SAP screenshot to the production n8n OCR.Space workflow. */
+    /** Send the SAP screenshot to the production n8n AI Vision workflow. */
     suspend fun extractSapNotification(
         orderImage: ByteArray,
         accessToken: String,

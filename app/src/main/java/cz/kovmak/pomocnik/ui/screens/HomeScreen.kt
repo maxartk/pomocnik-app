@@ -41,7 +41,6 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import cz.kovmak.pomocnik.viewmodel.WorkViewModel
-import cz.kovmak.pomocnik.ui.components.VoiceInputButton
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
 import java.io.File
@@ -62,7 +61,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
     val context = LocalContext.current
     val formState by viewModel.formState.collectAsState()
     val translationResult by viewModel.translationResult.collectAsState()
-    val advisorResult by viewModel.advisorResult.collectAsState()
     val technicalReport by viewModel.technicalReport.collectAsState()
     val profile by viewModel.userProfile.collectAsState()
     val apiKey = profile?.openRouterApiKey ?: ""
@@ -166,412 +164,152 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(22.dp))
 
-        // ==================== MODE SWITCH ====================
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(DarkSurface, RoundedCornerShape(14.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.Center
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, NeonOrange.copy(alpha = 0.28f))
         ) {
-            FilterChip(
-                selected = formState.mode == "submit",
-                onClick = { viewModel.setMode("submit") },
-                label = { Text("📝 Переклад", fontSize = 13.sp) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NeonOrange,
-                    selectedLabelColor = Color.White,
-                    containerColor = Color.Transparent
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("SAP PM · 3 кроки", color = NeonOrange, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "1. Фото hlášení  →  2. Перевір дані  →  3. Напиши ремонт і сформуй запис",
+                    color = TextGray,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
                 )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            FilterChip(
-                selected = formState.mode == "advisor",
-                onClick = { viewModel.setMode("advisor") },
-                label = { Text("🔧 Порадник", fontSize = 13.sp) },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = NeonBlue,
-                    selectedLabelColor = Color.White,
-                    containerColor = Color.Transparent
-                )
-            )
+            }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // ==================== VOICE BUTTON ====================
-        VoiceInputButton(
-            onResult = { text ->
-                // Only fill the text field — NO auto-translate
-                // User presses "ПЕРЕКЛАСТИ" button to translate
-                val current = formState.descriptionUa
-                viewModel.updateDescriptionUa(if (current.isBlank()) text else "$current $text")
-            },
-            isProcessing = formState.isTranslating
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // ==================== TEXT INPUT ====================
+        // ==================== PHOTO + AI VISION ====================
+        Spacer(modifier = Modifier.height(16.dp))
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = DarkCard)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Text("1 · Фото SAP hlášení", color = NeonOrange, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Сфотографуй екран SAP. AI Vision витягне zakázku, místo, автора, пріоритет і початок порухи.", color = TextGray, fontSize = 12.sp, lineHeight = 17.sp)
+                Spacer(modifier = Modifier.height(14.dp))
+                PhotoPickerBlock(
+                    label = "Hlášení SAP",
+                    hint = "Зроби чітке фото всього екрана SAP",
+                    uri = formState.photoUri,
+                    accent = NeonOrange,
+                    onCamera = { launchCamera("main") },
+                    onGallery = { galleryLauncher.launch("image/*") },
+                    onRemove = { viewModel.setPhotoUri(null) }
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Button(
+                    onClick = viewModel::readSapNotification,
+                    enabled = formState.photoUri != null && !formState.isReadingPhoto && ocrAccessKey.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonOrange)
                 ) {
-                    Text("🇺🇦 Українською", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                    if (formState.descriptionUa.isNotEmpty()) {
-                        IconButton(
-                            onClick = { viewModel.updateDescriptionUa("") },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(Icons.Filled.Close, "Очистити", tint = Color(0xFFFF4444), modifier = Modifier.size(20.dp))
-                        }
+                    if (formState.isReadingPhoto) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("AI ЧИТАЄ SAP...", color = Color.White, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("ПРОЧИТАТИ HLÁŠENÍ З AI", fontWeight = FontWeight.Bold)
                     }
                 }
+                if (ocrAccessKey.isBlank()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Додай Pomocnik access key у Налаштуваннях", color = Color(0xFFFFCC66), fontSize = 11.sp)
+                }
+            }
+        }
 
-                OutlinedTextField(
-                    value = formState.descriptionUa,
-                    onValueChange = viewModel::updateDescriptionUa,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp),
-                    placeholder = { Text("Опиши що зробив...", color = TextGray.copy(alpha = 0.3f)) },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = NeonOrange,
-                        unfocusedBorderColor = TextGray.copy(alpha = 0.2f),
-                        focusedTextColor = TextWhite,
-                        unfocusedTextColor = TextWhite,
-                        cursorColor = NeonOrange
-                    ),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
-                )
+        val notification = formState.notification
+        if (notification.orderId.isNotBlank() || notification.notificationText.isNotBlank()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            NotificationReviewCard(formState = formState, viewModel = viewModel)
+        }
 
+        Spacer(modifier = Modifier.height(16.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = DarkCard)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("2 · Твій ремонт", color = NeonOrange, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Початок береться з hlášení. Введи лише кінець порухи та коротко, що зробив.", color = TextGray, fontSize = 12.sp, lineHeight = 17.sp)
+                Spacer(modifier = Modifier.height(14.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = formState.endDate, onValueChange = viewModel::updateEndDate, label = { Text("Дата кінця") }, modifier = Modifier.weight(1.25f), singleLine = true)
+                    OutlinedTextField(value = formState.endTime, onValueChange = viewModel::updateEndTime, label = { Text("Час кінця") }, modifier = Modifier.weight(1f), singleLine = true)
+                }
+                if (formState.hours > 0.0) {
+                    Text("Тривалість: ${String.format(java.util.Locale.ROOT, "%.2f", formState.hours)} h", color = NeonBlue, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+                }
                 Spacer(modifier = Modifier.height(12.dp))
-
-                // Quick action chips
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Text("Тип робіт", color = TextGray, fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = formState.workType == "E",
                         onClick = { viewModel.updateWorkType("E") },
-                        label = { Text("⚡ E", fontSize = 13.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NeonOrange,
-                            selectedLabelColor = Color.White
-                        )
+                        label = { Text("⚡ Електрика") },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NeonOrange, selectedLabelColor = Color.White)
                     )
                     FilterChip(
                         selected = formState.workType == "M",
                         onClick = { viewModel.updateWorkType("M") },
-                        label = { Text("🔧 M", fontSize = 13.sp) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = NeonBlue,
-                            selectedLabelColor = Color.White
-                        )
+                        label = { Text("🔧 Механіка") },
+                        colors = FilterChipDefaults.filterChipColors(selectedContainerColor = NeonBlue, selectedLabelColor = Color.White)
                     )
-
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Photo button (gallery) - visible in both modes
-                    IconButton(
-                        onClick = { galleryLauncher.launch("image/*") },
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(DarkSurface)
-                    ) {
-                        Icon(
-                            Icons.Outlined.Image,
-                            contentDescription = "Галерея",
-                            tint = if (formState.photoUri != null) NeonOrange else TextGray
-                        )
-                    }
                 }
+                Spacer(modifier = Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = formState.descriptionUa,
+                    onValueChange = viewModel::updateDescriptionUa,
+                    label = { Text("Що зробив") },
+                    placeholder = { Text("Наприклад: замінив кабель, перевірив датчик...", color = TextGray.copy(alpha = 0.55f)) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 112.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = NeonOrange, unfocusedBorderColor = TextGray.copy(alpha = 0.25f), focusedTextColor = TextWhite, unfocusedTextColor = TextWhite)
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                PhotoPickerBlock(
+                    label = "Фото деталі (необов’язково)",
+                    hint = "Додай, якщо фото допоможе точніше описати деталь або ремонт",
+                    uri = formState.detailPhotoUri,
+                    accent = NeonBlue,
+                    onCamera = { launchCamera("detail") },
+                    onGallery = { detailGalleryLauncher.launch("image/*") },
+                    onRemove = { viewModel.setDetailPhotoUri(null) }
+                )
             }
         }
 
-        // ==================== PHOTO DISPLAY + CAMERA ====================
-        if (formState.mode == "advisor" || formState.mode == "submit") {
+        if (formState.notificationConfirmed && formState.descriptionUa.isNotBlank()) {
             Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkCard)
+            Button(
+                onClick = { viewModel.generateReportFromPhotos(apiKey) },
+                enabled = !formState.isTranslating && apiKey.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(54.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = NeonOrange)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    if (formState.mode == "advisor") {
-                        PhotoPickerBlock(
-                            label = "📷 Фото проблеми",
-                            hint = "Прикріпи фото — AI побачить проблему",
-                            uri = formState.photoUri,
-                            accent = NeonBlue,
-                            onCamera = { launchCamera("main") },
-                            onGallery = { galleryLauncher.launch("image/*") },
-                            onRemove = { viewModel.setPhotoUri(null) }
-                        )
-                    } else {
-                        PhotoPickerBlock(
-                            label = "📋 Фото hlášení SAP",
-                            hint = "Сфоткай екран — OCR.Space через n8n витягне заказку, автора, дату, час і опис порухи",
-                            uri = formState.photoUri,
-                            accent = NeonOrange,
-                            onCamera = { launchCamera("main") },
-                            onGallery = { galleryLauncher.launch("image/*") },
-                            onRemove = { viewModel.setPhotoUri(null) }
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Button(
-                            onClick = viewModel::readSapNotification,
-                            enabled = formState.photoUri != null && !formState.isReadingPhoto && ocrAccessKey.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = NeonOrange)
-                        ) {
-                            if (formState.isReadingPhoto) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("ЧИТАЮ SAP...", color = Color.White, fontWeight = FontWeight.Bold)
-                            } else {
-                                Icon(Icons.Filled.DocumentScanner, null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("РОЗПІЗНАТИ HLÁŠENÍ", fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        if (ocrAccessKey.isBlank()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                "Додай Pomocnik OCR access key у Налаштуваннях",
-                                color = Color(0xFFFFCC66),
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        val notification = formState.notification
-                        if (notification.orderId.isNotBlank() || notification.notificationText.isNotBlank()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = DarkSurface),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, NeonBlue.copy(alpha = 0.35f))
-                            ) {
-                                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("✅ Дані з hlášení — перевір", color = NeonBlue, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                    OutlinedTextField(
-                                        value = formState.orderId,
-                                        onValueChange = viewModel::updateOrderId,
-                                        label = { Text("Zakázka") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(
-                                            value = notification.notificationDate,
-                                            onValueChange = viewModel::updateNotificationDate,
-                                            label = { Text("Datum hlášení") },
-                                            modifier = Modifier.weight(1f),
-                                            singleLine = true
-                                        )
-                                        OutlinedTextField(
-                                            value = formState.startTime,
-                                            onValueChange = viewModel::updateStartTime,
-                                            label = { Text("Čas hlášení") },
-                                            modifier = Modifier.weight(1f),
-                                            singleLine = true
-                                        )
-                                    }
-                                    OutlinedTextField(
-                                        value = notification.technicalLocation,
-                                        onValueChange = viewModel::updateTechnicalLocation,
-                                        label = { Text("Technické místo") },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        singleLine = true
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(
-                                            value = notification.author,
-                                            onValueChange = viewModel::updateNotificationAuthor,
-                                            label = { Text("Autor") },
-                                            modifier = Modifier.weight(1f),
-                                            singleLine = true
-                                        )
-                                        OutlinedTextField(
-                                            value = notification.priority,
-                                            onValueChange = viewModel::updateNotificationPriority,
-                                            label = { Text("Priorita") },
-                                            modifier = Modifier.weight(1f),
-                                            singleLine = true
-                                        )
-                                    }
-                                    OutlinedTextField(
-                                        value = notification.notificationText,
-                                        onValueChange = viewModel::updateNotificationText,
-                                        label = { Text("Що написав автор hlášení") },
-                                        modifier = Modifier.fillMaxWidth().heightIn(min = 90.dp)
-                                    )
-                                    Button(
-                                        onClick = viewModel::confirmNotification,
-                                        enabled = !formState.notificationConfirmed,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (formState.notificationConfirmed) NeonBlue else NeonOrange
-                                        )
-                                    ) {
-                                        Icon(
-                                            if (formState.notificationConfirmed) Icons.Filled.CheckCircle else Icons.Filled.FactCheck,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            if (formState.notificationConfirmed) "ДАНІ ПІДТВЕРДЖЕНО" else "ПЕРЕВІРИВ — ПІДТВЕРДИТИ",
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(14.dp))
-                        PhotoPickerBlock(
-                            label = "🔩 Фото деталі (необовʼязково)",
-                            hint = "Додай тільки коли сумніваєшся або mistr/SAP міг назвати деталь неправильно",
-                            uri = formState.detailPhotoUri,
-                            accent = NeonBlue,
-                            onCamera = { launchCamera("detail") },
-                            onGallery = { detailGalleryLauncher.launch("image/*") },
-                            onRemove = { viewModel.setDetailPhotoUri(null) }
-                        )
-                    }
-                }
-            }
-        }
-
-        // ==================== WORK TIME ====================
-        if (formState.mode == "submit") {
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = DarkCard)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("🕐 Кінець порухи", color = NeonOrange, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val notificationStart = listOf(
-                        formState.notification.notificationDate,
-                        formState.startTime
-                    ).filter { it.isNotBlank() }.joinToString(" ")
-                    Text(
-                        if (notificationStart.isBlank())
-                            "Спочатку розпізнай фото SAP — дата і початок підтягнуться автоматично."
-                        else "Початок із hlášení: $notificationStart",
-                        color = TextGray,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = formState.endDate,
-                            onValueChange = viewModel::updateEndDate,
-                            label = { Text("Дата кінця", fontSize = 12.sp) },
-                            placeholder = { Text("21.07.2026", color = TextGray.copy(alpha = 0.4f)) },
-                            modifier = Modifier.weight(1.25f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Next)
-                        )
-                        OutlinedTextField(
-                            value = formState.endTime,
-                            onValueChange = viewModel::updateEndTime,
-                            label = { Text("Час кінця", fontSize = 12.sp) },
-                            placeholder = { Text("18:00", color = TextGray.copy(alpha = 0.4f)) },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Done)
-                        )
-                    }
-                    Text(
-                        "Дата підставляється автоматично; змінюй її тільки якщо поруха тривала довше доби.",
-                        color = TextGray,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
-                    if (formState.hours > 0.0) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Тривалість порухи: ${String.format(java.util.Locale.ROOT, "%.2f", formState.hours)} h", color = NeonBlue, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-
-        // ==================== ACTION BUTTON (Translate OR Advisor) ====================
-        if (formState.descriptionUa.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (formState.mode == "advisor") {
-                // Advisor mode button
-                Button(
-                    onClick = { viewModel.askAdvisor(apiKey) },
-                    enabled = !formState.isTranslating && apiKey.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonBlue)
-                ) {
-                    AnimatedContent(targetState = formState.isTranslating) { translating ->
-                        if (translating) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text("Думаю...", color = Color.White, fontWeight = FontWeight.SemiBold)
-                            }
-                        } else {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Filled.Lightbulb, null, tint = Color.White)
-                                Spacer(modifier = Modifier.width(10.dp))
-                                val btnText = if (formState.photoUri != null) "ЗАПИТАТИ З ФОТО 📷" else "ЗАПИТАТИ ПОРАДУ"
-                                Text(btnText, color = Color.White, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                            }
-                        }
-                    }
-                }
-            } else {
-                Button(
-                    onClick = { viewModel.generateReportFromPhotos(apiKey) },
-                    enabled = !formState.isTranslating &&
-                        apiKey.isNotEmpty() &&
-                        formState.photoUri != null &&
-                        formState.notificationConfirmed,
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = NeonOrange)
-                ) {
-                    if (formState.isTranslating) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text("ФОРМУЮ HLÁŠENÍ...", color = Color.White, fontWeight = FontWeight.Bold)
-                    } else {
-                        Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("ЗГЕНЕРУВАТИ HLÁŠENÍ + SAP ПОЛЯ", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                }
-                if (!formState.notificationConfirmed) {
-                    Text(
-                        "Спочатку перевір і підтвердь дані, які AI витягнув із фото.",
-                        color = TextGray,
-                        fontSize = 11.sp,
-                        modifier = Modifier.padding(top = 6.dp)
-                    )
+                if (formState.isTranslating) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("ФОРМУЮ ЗАПИС SAP...", color = Color.White, fontWeight = FontWeight.Bold)
+                } else {
+                    Icon(Icons.Filled.AutoAwesome, null, modifier = Modifier.size(19.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("3 · СФОРМУВАТИ ЗАПИС SAP", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -745,52 +483,6 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
                                     )
                                 )
                             }
-                        }
-                    }
-                }
-            }
-        }
-
-        // ==================== ADVISOR RESULT ====================
-        AnimatedVisibility(
-            visible = advisorResult != null,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 4 }),
-            exit = fadeOut()
-        ) {
-            advisorResult?.let { text ->
-                Column {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = DarkCard)
-                    ) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("🔧 Порада", color = NeonBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    IconButton(
-                                        onClick = {
-                                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("advice", text))
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) { Icon(Icons.Outlined.ContentCopy, "Копіювати", tint = TextGray, modifier = Modifier.size(18.dp)) }
-                                    IconButton(
-                                        onClick = {
-                                            val share = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, text) }
-                                            context.startActivity(Intent.createChooser(share, "Поділитися"))
-                                        },
-                                        modifier = Modifier.size(32.dp)
-                                    ) { Icon(Icons.Outlined.Share, "Поділитися", tint = NeonOrange, modifier = Modifier.size(18.dp)) }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(text = text, color = TextWhite, fontSize = 15.sp, lineHeight = 22.sp)
                         }
                     }
                 }
@@ -974,6 +666,43 @@ fun HomeScreen(viewModel: WorkViewModel = viewModel()) {
         }
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Composable
+private fun NotificationReviewCard(formState: cz.kovmak.pomocnik.viewmodel.WorkFormState, viewModel: WorkViewModel) {
+    val notification = formState.notification
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NeonBlue.copy(alpha = 0.42f))
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("✅ AI витягнув дані — перевір", color = NeonBlue, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text("Виправ будь-яке поле перед підтвердженням.", color = TextGray, fontSize = 11.sp)
+            OutlinedTextField(value = formState.orderId, onValueChange = viewModel::updateOrderId, label = { Text("Zakázka") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = notification.notificationDate, onValueChange = viewModel::updateNotificationDate, label = { Text("Datum hlášení") }, modifier = Modifier.weight(1f), singleLine = true)
+                OutlinedTextField(value = formState.startTime, onValueChange = viewModel::updateStartTime, label = { Text("Čas hlášení") }, modifier = Modifier.weight(1f), singleLine = true)
+            }
+            OutlinedTextField(value = notification.technicalLocation, onValueChange = viewModel::updateTechnicalLocation, label = { Text("Technické místo") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(value = notification.author, onValueChange = viewModel::updateNotificationAuthor, label = { Text("Autor") }, modifier = Modifier.weight(1f), singleLine = true)
+                OutlinedTextField(value = notification.priority, onValueChange = viewModel::updateNotificationPriority, label = { Text("Priorita") }, modifier = Modifier.weight(1f), singleLine = true)
+            }
+            OutlinedTextField(value = notification.notificationText, onValueChange = viewModel::updateNotificationText, label = { Text("Původní závada") }, modifier = Modifier.fillMaxWidth().heightIn(min = 88.dp))
+            Button(
+                onClick = viewModel::confirmNotification,
+                enabled = !formState.notificationConfirmed,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = if (formState.notificationConfirmed) NeonBlue else NeonOrange)
+            ) {
+                Icon(if (formState.notificationConfirmed) Icons.Filled.CheckCircle else Icons.Filled.FactCheck, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(if (formState.notificationConfirmed) "ДАНІ ПІДТВЕРДЖЕНО" else "ПІДТВЕРДИТИ ДАНІ", fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 

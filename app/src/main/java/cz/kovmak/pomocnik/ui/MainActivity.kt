@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import cz.kovmak.pomocnik.ui.screens.HomeScreen
 import cz.kovmak.pomocnik.ui.screens.HistoryScreen
 import cz.kovmak.pomocnik.ui.screens.SettingsScreen
-import cz.kovmak.pomocnik.ui.screens.ShiftScheduleScreen
 import cz.kovmak.pomocnik.ui.theme.PomocnikTheme
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cz.kovmak.pomocnik.viewmodel.WorkViewModel
@@ -51,8 +50,8 @@ fun PomocnikApp() {
                 tonalElevation = 0.dp
             ) {
                 NavigationBarItem(
-                    icon = { Icon(Icons.Filled.Mic, contentDescription = null) },
-                    label = { Text("Новий") },
+                    icon = { Icon(Icons.Filled.Assignment, contentDescription = null) },
+                    label = { Text("Hlášení") },
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
                     colors = NavigationBarItemDefaults.colors(
@@ -77,23 +76,10 @@ fun PomocnikApp() {
                     )
                 )
                 NavigationBarItem(
-                    icon = { Icon(Icons.Filled.CalendarMonth, contentDescription = null) },
-                    label = { Text("Графік") },
-                    selected = selectedTab == 2,
-                    onClick = { selectedTab = 2 },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color(0xFFFFB000),
-                        selectedTextColor = Color(0xFFFFB000),
-                        indicatorColor = Color(0x22FFB000),
-                        unselectedIconColor = Color(0xFF94A3B8),
-                        unselectedTextColor = Color(0xFF94A3B8)
-                    )
-                )
-                NavigationBarItem(
                     icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
                     label = { Text("Налашт.") },
-                    selected = selectedTab == 3,
-                    onClick = { selectedTab = 3 },
+                    selected = selectedTab == 2,
+                    onClick = { selectedTab = 2 },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFFFB000),
                         selectedTextColor = Color(0xFFFFB000),
@@ -121,8 +107,7 @@ fun PomocnikApp() {
                     workViewModel.loadEntry(entry)
                     selectedTab = 0
                 })
-                2 -> ShiftScheduleScreen()
-                3 -> SettingsScreen()
+                2 -> SettingsScreen()
             }
         }
     }

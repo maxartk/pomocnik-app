@@ -157,7 +157,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "🔐 Доступ до SAP OCR",
+                    text = "🔐 Доступ до SAP AI Vision",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -167,7 +167,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                         ocrAccessKey = it
                         viewModel.updateOcrAccessKey(it)
                     },
-                    label = { Text("Pomocnik OCR access key") },
+                    label = { Text("Pomocnik AI Vision access key") },
                     modifier = Modifier.fillMaxWidth(),
                     leadingIcon = { Icon(Icons.Default.Security, contentDescription = null) },
                     visualTransformation = if (showOcrAccessKey) VisualTransformation.None else PasswordVisualTransformation(),
@@ -184,7 +184,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Ключ захищає n8n OCR webhook. Provider API keys залишаються тільки на сервері.",
+                    text = "Ключ захищає n8n AI Vision webhook. Provider API keys залишаються тільки на сервері.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
