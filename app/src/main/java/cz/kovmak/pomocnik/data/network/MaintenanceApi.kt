@@ -5,13 +5,13 @@ import cz.kovmak.pomocnik.data.model.SapNotificationData
 import cz.kovmak.pomocnik.data.model.SapNotificationParser
 import okhttp3.OkHttpClient
 import okhttp3.MultipartBody
-import okhttp3.RequestBody
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
+import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 data class MaintenanceOcrResponse(
@@ -44,7 +44,7 @@ interface MaintenanceApi {
     @POST("webhook/maintenance-v3")
     suspend fun readSapNotification(
         @Header("X-Pomocnik-Key") accessToken: String,
-        @Part("action") action: RequestBody,
+        @Query("action") action: String,
         @Part image: MultipartBody.Part
     ): MaintenanceOcrResponse
 

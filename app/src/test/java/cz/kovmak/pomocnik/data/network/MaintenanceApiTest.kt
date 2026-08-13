@@ -54,18 +54,17 @@ class MaintenanceApiTest {
 
         val response = api.readSapNotification(
             accessToken = "device-token",
-            action = "ocr_notification".toRequestBody("text/plain".toMediaType()),
+            action = "ocr_notification",
             image = image
         )
         val notification = response.requireNotification()
 
         val request = server.takeRequest()
-        assertEquals("/webhook/maintenance-v3", request.path)
+        assertEquals("/webhook/maintenance-v3?action=ocr_notification", request.path)
         assertEquals("POST", request.method)
         assertEquals("device-token", request.getHeader("X-Pomocnik-Key"))
         val multipart = request.body.readUtf8()
-        assertTrue(multipart.contains("name=\"action\""))
-        assertTrue(multipart.contains("ocr_notification"))
+        assertTrue(!multipart.contains("name=\"action\""))
         assertTrue(multipart.contains("name=\"file\"; filename=\"sap.jpg\""))
         assertEquals("22314597", notification.orderId)
         assertEquals("Z901-FP-FP09-DOP1", notification.technicalLocation)

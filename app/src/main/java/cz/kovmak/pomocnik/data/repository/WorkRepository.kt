@@ -246,9 +246,10 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
 
         val imageBody = orderImage.toRequestBody("image/jpeg".toMediaType())
         val imagePart = MultipartBody.Part.createFormData("file", fileName, imageBody)
-        val action = "ocr_notification".toRequestBody("text/plain".toMediaType())
 
-        maintenanceApi.readSapNotification(accessToken.trim(), action, imagePart).requireNotification()
+        // action goes as a query parameter: n8n's webhook treats a multipart text field
+        // with a Content-Type header as a binary file, so the action never reached $json.body.
+        maintenanceApi.readSapNotification(accessToken.trim(), "ocr_notification", imagePart).requireNotification()
     }
 
     /**
@@ -265,45 +266,25 @@ Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě 
         val dynamicApi = OpenRouterApi.create(apiKey)
         val chosenModel = if (detailImageBase64 != null) ModelConfig.VISION_MODEL else model
 
-        val systemPrompt = """Jsi zkušený technik průmyslové údržby v SAP PM.
-Umíš číst fotky hlášení/zakázky ze SAP a z krátké poznámky pracovníka napsat jednoduchý český zápis práce.
-Piš jako normální elektrikář z údržby, ne jako kancelář nebo inženýr. Zachovej technický význam přesně.""".trimIndent()
+        val systemPrompt = """Jsi překladatel z ukrajinštiny do češtiny pro elektrikáře z údržby.
+Přelož poznámku pracovníka přesně. Piš jako normální elektrikář, ne jako kancelář.
+NIKDY nic nepřidávej: žádné hlášení, žádný kontext, žádné vysvětlení, žádné vymýšlení.
+Žádné stavy ani předpoklady, které v poznámce nejsou."""
 
-        val textPrompt = """Vytvoř výstup pro pracovní hlášení podle těchto vstupů:
-1) PŮVODNÍ HLÁŠENÍ AUTORA:
-- Zakázka: ${notification.orderId}
-- Technické místo: ${notification.technicalLocation}
-- Datum a čas hlášení: ${notification.notificationDate} ${notification.notificationTime}
-- Autor: ${notification.author}
-- Priorita: ${notification.priority}
-- Popis závady od autora: ${notification.notificationText}
-
-2) FOTO SKUTEČNÉHO DÍLU: je nepovinné. Pokud je přiložené, použij ho k ověření správné části.
-3) POZNÁMKA PRACOVNÍKA PO OPRAVĚ: je rozhodující pro to, co se opravdu udělalo.
-
-Poznámka pracovníka:
+        val textPrompt = """Přelož tuto poznámku pracovníka do češtiny:
 $repairNote
 
-Důležitá pravidla:
-- Pokud SAP nebo mistr určil díl špatně, oprav to podle poznámky pracovníka a/nebo fotky dílu.
-- Například když SAP píše "trn", ale pracovník píše nebo fotka ukazuje "spojka", napiš spojku, ne trn.
-- Nehádej neviditelné údaje. Když něco není jisté, napiš obecněji.
-- Výsledkem má být krátký český text použitelný do SAP/hlášení po opravě.
-- Piš jednoduše: co jsme udělali, co jsme vyměnili/opravili, případně co se má objednat.
-- Nepiš žádné nadpisy, odrážky, markdown ani **.
-- Nepoužívej kancelářská slova jako "provedena", "provozuschopnost", "zařízení obnovena", "doporučena objednávka".
-- Nezačínej "Dobrý den" a nepřidávej fráze typu "úkol splněn".
-- Spoj kontext od autora hlášení s tím, co pracovník skutečně udělal. Nezaměňuj původní závadu za provedenou opravu.
-
-Správný styl příkladu:
-Zavařili jsme spojku. Druhá spojka už je špatná, je potřeba objednat dvě nové.
-
-Špatný styl: nadpisy, markdown a kancelářské věty.
+Pravidla:
+- Napiš POUZE to, co pracovník udělal. Jedna krátká věta, maximálně dvě.
+- Nepřidávej text z hlášení, žádný kontext, žádné vysvětlení, žádné vymýšlení.
+- Žádné nadpisy, odrážky, markdown, žádná kancelářská slova ("provedeno", "provozuschopnost").
+- NEPŘIDÁVEJ STAVY: pokud pracovník napsal jen akci (např. přepnul z A do B a zpět), nepíš, že něco "bylo" v nějakém stavu.
+- Pokud je přiložené foto dílu, můžeš podle něj upřesnit název dílu, ale neměň smysl poznámky.
 
 Vrať POUZE validní JSON bez markdownu:
 {
-  "descriptionCz": "jedna přirozená česká věta co bylo opraveno",
-  "technicalReport": "1 až 3 krátké obyčejné české věty bez nadpisů a bez markdownu"
+  "descriptionCz": "přeložená poznámka - jedna krátká věta",
+  "technicalReport": "přeložená poznámka - jedna krátká věta"
 }""".trimIndent()
 
         val content = mutableListOf<ContentPart>(ContentPart(type = "text", text = textPrompt))
